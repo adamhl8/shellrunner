@@ -1,0 +1,184 @@
+#!/usr/bin/env python
+
+import inspect
+import os
+import subprocess
+import sys
+from pathlib import Path
+from shutil import which
+from typing import NamedTuple
+
+from psutil import Process
+
+
+class PipelineError(ChildProcessError):
+    pass
+
+
+class ResultTuple(NamedTuple):
+    output: str
+    status: int | list[int]
+
+
+# Returns the full path of parent process/shell. That way commands are executed using the same shell that invoked this script.
+def _get_parent_shell_path() -> Path:
+    try:
+        shell_path = Process().parent().exe()
+        return Path(shell_path).resolve(strict=True)
+    except:
+        print("An error occured when trying to get the path of the parent shell:")
+        raise
+
+
+parent_shell_path = _get_parent_shell_path()
+
+
+# Returns the full path of a given path or executable name. e.g. "/bin/bash" or "bash"
+def _resolve_shell_path(shell: str) -> Path:
+    which_shell = which(shell, os.X_OK)
+    if which_shell is None:
+        raise FileNotFoundError(
+            f'Unable to resolve the path to the executable: "{shell}". It is either not on your PATH or the specified file is not executable.'
+        )
+    return Path(which_shell).resolve(strict=True)
+
+
+# TODO quiet and print_commands environment variables
+
+
+# If check=True (default), an error will be thrown on non-zero exit status.
+# If pipefail=True (default), an error will be thrown on non-zero exit status of any command in a pipeline.
+def X(
+    command: str | list[str],
+    shell: str = "",
+    check: bool = True,
+    pipefail: bool = True,
+    quiet: bool = False,
+    print_commands: bool = True,
+) -> ResultTuple:
+    shell = shell.strip()
+    shell_path = parent_shell_path
+
+    # If the environment variable (SHELLRUNNER_SHELL) for a shell is set, use that. The passed in shell takes precedence over the environment variable.
+    if not shell:
+        shell = os.environ.get("SHELLRUNNER_SHELL", shell)
+
+    # If given a shell, resolve its path and run the commands with it instead of the invoking shell.
+    if shell:
+        shell_path = _resolve_shell_path(shell)
+
+    shell_name = shell_path.name
+
+    # If a single command is passed in, put it in a list to simplify processing later on.
+    if isinstance(command, str):
+        command = [command]
+    command_list = command  # Rename
+
+    # The only way to reliably stop executing commands on an error is to exit from the shell itself. Killing the subprocess does not happen nearly fast enough.
+    # To do this, we append a command for each command that is passed in. Ultimately, we need to get $PIPESTATUS, process it, and exit based on that. $PIPESTATUS looks like: "0 1 0".
+    # We don't need to also get $?/$status because $PIPESTATUS gives the status of single command anyway.
+    # Rather than write a separate script for each shell to process $PIPESTATUS (e.g. bash would requier a different script than fish), we can pass $PIPESTATUS into a python script.
+    # We execute this python script by passing it to the parent python executable (sys.executable) via the -c flag.
+    # The following python code (status_check) takes in $PIPESTATUS, prints it (so we can capture it from stdout later on), loops through each status, and exits (with a non-zero status if there is one).
+    status_check = r"""
+        import sys
+        pipestatus = sys.argv[1]
+        print(b'\\u2f4c'.decode('unicode_escape') + f' : {pipestatus} : ' + b'\\u2f8f'.decode('unicode_escape'))
+        for status in [int(x) for x in pipestatus.split()]:
+            if status != 0: sys.exit(status)
+    """
+    # We use "⽌" and "⾏" as markers (that we'll likely never come across in the wild) to detect when a given command has finished. That way we can separately capture $PIPESTATUS from stdout (and not print it).
+    # The markers are Japanese radicals rather than full Kanji, so they do not appear in "normal" Japanese text. e.g. we use ⾏ (U+2F8F) instead of 行 (U+884C).
+    # We read stdout on each character rather than by line, so we have to detect on a single character. See the subprocess while loop.
+    # In the above print statement, we use unicode escapes to "hide" the characters from the shell and only convert them back when the code is actually executed. '\u2f4c' == ⽌ | '\u2f8f' == ⾏
+    # This is to prevent errors that would arise if the shell reprints the command. For example, when fish receives an unknown command in a pipeline, it reprints the entire command to point out where the error occured.
+    # If we used the actual characters in that case, we would fail to correctly capture pipestatus because we would be capturing the literal command sent to the shell, not pipestatus as printed from the code.
+
+    # Remove unnecessary whitespace.
+    status_check = inspect.cleandoc(status_check)
+
+    # Default to sh. "Pure" POSIX shells do not have $PIPESTATUS so only the exit status of the last command in a pipeline is available.
+    pipestatus_var = r"$?"
+    status_var = r"$?"
+    if shell_name == "bash":
+        pipestatus_var = r"${PIPESTATUS[*]}"
+    if shell_name == "zsh" or shell_name == "fish":
+        pipestatus_var = r"$pipestatus"
+        status_var = r"$status"
+
+    # If check argument is false, we won't exit after a non-zero exit status.
+    exit_command = f' || exit "{status_var}"' if check else ""
+
+    # This command is appended after each passed in command. If status_check exits with a non-zero status, we exit the shell.
+    status_command = f'{sys.executable} -c "{status_check}" "{pipestatus_var}"{exit_command}'
+
+    # This will be command_list but with status_command appended.
+    commands = command_list.copy()
+
+    for i in range(1, len(command_list) * 2, 2):
+        commands.insert(i, status_command)
+
+    commands = "; ".join(commands)
+    # Say the user passes in "echo hello". In the end, the commands variable looks something like this: echo hello; /path/to/python -c "status_check_code_here" $pipestatus || exit $status
+
+    output = ""
+    pipestatus = ""
+    status_list = []
+
+    # Print command_list rather than commands so we don't see the appended status_checks.
+    if print_commands:
+        print(f"Executing: {'; '.join(command_list)}")
+
+    # By using the Popen context manager via with, standard file descriptors are automatically closed.
+    with subprocess.Popen(
+        commands,
+        shell=True,
+        executable=shell_path,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    ) as process:
+        if process.stdout is None:
+            raise RuntimeError("process.stdout is None")
+
+        capture_output = True
+        # If we are still receving output or poll() is None, we know the command is still running.
+        # We must use stdout.read(1) rather than readline() in order to properly print commands that prompt the user for input. We must also forcibly flush the stream in the print statement for the same reason.
+        while (out := process.stdout.read(1)) or process.poll() is None:
+            # If we detect our marker, we know we are done with the previous command and have printed $PIPESTATUS. Capture stdout to pipestatus instead.
+            if out.startswith("⽌"):
+                capture_output = False
+            if capture_output:
+                process.stdout.flush()  # Probably unnecessary? Not sure if this flushes the same stream that we print to, or if this flushes the stream that is "internal" to the spawned shell.
+                if not quiet:
+                    print(
+                        out, end="", flush=True
+                    )  # We would be adding extra \n to the output if we don't specify end="".
+                output += out
+            else:
+                pipestatus += out
+
+            # If we detect our marker, we know we have finished capturing $PIPESTATUS and can start printing output again.
+            if out.startswith("⾏"):
+                if pipestatus:
+                    pipestatus = pipestatus.split(" : ")[1]
+                    # Convert pipestatus to a list of ints: '0 1 0' -> [0, 1, 0]
+                    status_list = [int(x) for x in pipestatus.split()]
+                capture_output = True
+
+    # Only check for a pipeline error if there is more than 1 status.
+    commandWasPipeline = len(status_list) > 1
+    if pipefail and commandWasPipeline:
+        for status in status_list:
+            if status != 0:
+                raise PipelineError(f"Pipeline exited with non-zero status: {status_list}")
+
+    # Exit status of a given command is always the last status of a pipeline. Equivalent to $?/$status.
+    status = status_list[-1]
+
+    if check and status != 0:
+        raise ChildProcessError(f"Command exited with non-zero status: {status}")
+
+    result = ResultTuple(output.strip(), status_list if commandWasPipeline else status)
+
+    return result

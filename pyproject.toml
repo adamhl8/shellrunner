@@ -1,0 +1,36 @@
+[project]
+name = "python-shellrunner"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "adamhl8", email = "adamhl@pm.me"},
+]
+dependencies = [
+    "psutil>=5.9.4",
+    "types-psutil>=5.9.5.10",
+]
+requires-python = ">=3.10"
+readme = "README.md"
+license = {text = "MIT"}
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
+
+[tool.pdm]
+[tool.pdm.dev-dependencies]
+dev = [
+    "black>=23.1.0",
+    "ruff>=0.0.254",
+]
+
+[tool.pyright]
+typeCheckingMode = "strict"
+
+[tool.black]
+line-length = 120
+target-version = ['py310']
+
+[tool.ruff]
+line-length = 120
+ignore = ["E501", "F401"]
