@@ -13,24 +13,35 @@ requires-python = ">=3.10"
 readme = "README.md"
 license = {text = "MIT"}
 
-[build-system]
-requires = ["pdm-backend"]
-build-backend = "pdm.backend"
-
-[tool.pdm]
 [tool.pdm.dev-dependencies]
 dev = [
     "black>=23.1.0",
     "ruff>=0.0.254",
+    "pytest>=7.2.2",
 ]
+
+[tool.pdm.scripts]
+pyright = {shell = "pyright src"}
+ruff = {cmd = "ruff check src"}
+lint = {composite = ["pyright", "ruff"]}
+format = {cmd = "black src"}
+test = {cmd = "pytest src"}
 
 [tool.pyright]
 typeCheckingMode = "strict"
 
 [tool.black]
 line-length = 120
-target-version = ['py310']
+target-version = ["py310"]
 
 [tool.ruff]
 line-length = 120
-ignore = ["E501", "F401"]
+target-version = "py310"
+select = ["E", "F", "W", "I", "N", "UP", "BLE", "FBT", "B", "A", "COM", "C4", "T10", "EM", "EXE", "ISC", "ICN", "G",
+"INP", "PIE", "PYI", "PT", "Q", "RSE", "RET", "SLF", "SIM", "TID", "TCH", "ARG", "PTH", "ERA", "PL", "PLC", "PLE",
+"PLR", "PLW", "TRY", "RUF"]
+ignore = ["E501", "PLR0915"]
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"

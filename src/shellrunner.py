@@ -4,6 +4,8 @@ import inspect
 import os
 import subprocess
 import sys
+from codecs import getincrementaldecoder
+from locale import getpreferredencoding
 from pathlib import Path
 from shutil import which
 from typing import NamedTuple
@@ -24,10 +26,11 @@ class ResultTuple(NamedTuple):
 def _get_parent_shell_path() -> Path:
     try:
         shell_path = Process().parent().exe()
-        return Path(shell_path).resolve(strict=True)
     except:
         print("An error occured when trying to get the path of the parent shell:")
         raise
+    else:
+        return Path(shell_path).resolve(strict=True)
 
 
 parent_shell_path = _get_parent_shell_path()
@@ -37,9 +40,8 @@ parent_shell_path = _get_parent_shell_path()
 def _resolve_shell_path(shell: str) -> Path:
     which_shell = which(shell, os.X_OK)
     if which_shell is None:
-        raise FileNotFoundError(
-            f'Unable to resolve the path to the executable: "{shell}". It is either not on your PATH or the specified file is not executable.'
-        )
+        message = f'Unable to resolve the path to the executable: "{shell}". It is either not on your PATH or the specified file is not executable.'
+        raise FileNotFoundError(message)
     return Path(which_shell).resolve(strict=True)
 
 
@@ -48,8 +50,9 @@ def _resolve_shell_path(shell: str) -> Path:
 
 # If check=True (default), an error will be thrown on non-zero exit status.
 # If pipefail=True (default), an error will be thrown on non-zero exit status of any command in a pipeline.
-def X(
+def X(  # noqa: N802
     command: str | list[str],
+    *,
     shell: str = "",
     check: bool = True,
     pipefail: bool = True,
@@ -121,6 +124,7 @@ def X(
     commands = "; ".join(commands)
     # Say the user passes in "echo hello". In the end, the commands variable looks something like this: echo hello; /path/to/python -c "status_check_code_here" $pipestatus || exit $status
 
+    # If we use text=True when invoking Popen, all line endings in the output are converted to "\n". To avoid this, we use the default binary stream and decode the output later.
     output = ""
     pipestatus = ""
     status_list = []
@@ -134,26 +138,27 @@ def X(
         commands,
         shell=True,
         executable=shell_path,
-        text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
     ) as process:
         if process.stdout is None:
-            raise RuntimeError("process.stdout is None")
+            message = "process.stdout is None"
+            raise RuntimeError(message)
 
+        decoder = getincrementaldecoder(getpreferredencoding())()
         capture_output = True
         # If we are still receving output or poll() is None, we know the command is still running.
         # We must use stdout.read(1) rather than readline() in order to properly print commands that prompt the user for input. We must also forcibly flush the stream in the print statement for the same reason.
         while (out := process.stdout.read(1)) or process.poll() is None:
+            out = decoder.decode(out)
             # If we detect our marker, we know we are done with the previous command and have printed $PIPESTATUS. Capture stdout to pipestatus instead.
             if out.startswith("⽌"):
                 capture_output = False
-            if capture_output:
+            if capture_output and out:
                 process.stdout.flush()  # Probably unnecessary? Not sure if this flushes the same stream that we print to, or if this flushes the stream that is "internal" to the spawned shell.
                 if not quiet:
-                    print(
-                        out, end="", flush=True
-                    )  # We would be adding extra \n to the output if we don't specify end="".
+                    # We would be adding extra \n to the output if we don't specify end="".
+                    print(out, end="", flush=True)
                 output += out
             else:
                 pipestatus += out
@@ -167,18 +172,18 @@ def X(
                 capture_output = True
 
     # Only check for a pipeline error if there is more than 1 status.
-    commandWasPipeline = len(status_list) > 1
-    if pipefail and commandWasPipeline:
+    command_was_pipeline = len(status_list) > 1
+    if pipefail and command_was_pipeline:
         for status in status_list:
             if status != 0:
-                raise PipelineError(f"Pipeline exited with non-zero status: {status_list}")
+                message = f"Pipeline exited with non-zero status: {status_list}"
+                raise PipelineError(message)
 
     # Exit status of a given command is always the last status of a pipeline. Equivalent to $?/$status.
     status = status_list[-1]
 
     if check and status != 0:
-        raise ChildProcessError(f"Command exited with non-zero status: {status}")
+        message = f"Command exited with non-zero status: {status}"
+        raise ChildProcessError(message)
 
-    result = ResultTuple(output.strip(), status_list if commandWasPipeline else status)
-
-    return result
+    return ResultTuple(output, status_list if command_was_pipeline else status)
