@@ -40,7 +40,7 @@ target-version = "py310"
 select = ["E", "F", "W", "I", "N", "UP", "BLE", "FBT", "B", "A", "COM", "C4", "T10", "EM", "EXE", "ISC", "ICN", "G",
 "INP", "PIE", "PYI", "PT", "Q", "RSE", "RET", "SLF", "SIM", "TID", "TCH", "ARG", "PTH", "ERA", "PL", "PLC", "PLE",
 "PLR", "PLW", "TRY", "RUF"]
-ignore = ["E501", "PLR0915"]
+ignore = ["E501", "PLR0915", "PLR0912"]
 
 [build-system]
 requires = ["pdm-backend"]

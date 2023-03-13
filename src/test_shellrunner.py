@@ -25,8 +25,7 @@ def pipeline_error_message():
 
 # This code is separated from the parent_shell fixture so we can call it separately if needed.
 def get_parent_shell_info():
-    shell_path = Process().parent().exe()
-    shell_path = Path(shell_path).resolve(strict=True)
+    shell_path = Path(Process().parent().exe()).resolve(strict=True)
 
     # If pytest is invoked via pdm, the parent process will be python, not the shell, so we fallback to bash.
     if shell_path.name.startswith("python"):
@@ -57,7 +56,7 @@ for shell in shells:
 class TestCommands:
     def test_single_command(self, shell: str):
         result = X("echo test", shell=shell)
-        assert result.output == "test\n"
+        assert result.out == "test\n"
         assert result.status == 0
 
     def test_single_command_error(self, shell: str, child_process_error_message: str):
@@ -72,7 +71,7 @@ class TestCommands:
 
     def test_pipeline(self, shell: str):
         result = X("echo test | grep test", shell=shell)
-        assert result.output == "test\n"
+        assert result.out == "test\n"
         if shell == "sh":
             assert result.status == 0
         else:
@@ -106,7 +105,7 @@ class TestCommands:
 
     def test_command_list(self, shell: str):
         result = X(["echo test", "echo test"], shell=shell)
-        assert result.output == "test\ntest\n"
+        assert result.out == "test\ntest\n"
         assert result.status == 0
 
     def test_command_list_error(self, shell: str, child_process_error_message: str):
@@ -116,22 +115,22 @@ class TestCommands:
 
     def test_command_list_maintains_environment(self, shell: str):
         result = X(["cd /", "pwd"], shell=shell)
-        assert result.output == "/\n"
+        assert result.out == "/\n"
         assert result.status == 0
 
     def test_check_false_does_not_raise_error(self, shell: str):
         result = X("false", shell=shell, check=False)
-        assert result.output == ""
+        assert result.out == ""
         assert result.status == 1
 
     def test_check_false_does_not_stop_execution(self, shell: str):
         result = X(["false", "echo test"], shell=shell, check=False)
-        assert result.output == "test\n"
+        assert result.out == "test\n"
         assert result.status == 0
 
     def test_pipefail_false_does_not_raise_error(self, shell: str):
         result = X("true | false | true", shell=shell, pipefail=False)
-        assert result.output == ""
+        assert result.out == ""
         if shell == "sh":
             assert result.status == 0
         else:
@@ -145,11 +144,11 @@ class TestCommands:
 
     def test_check_false_pipefail_false(self, shell: str):
         result = X("false", shell=shell, check=False, pipefail=False)
-        assert result.output == ""
+        assert result.out == ""
         assert result.status == 1
 
         result = X("true | false | false", shell=shell, check=False, pipefail=False)
-        assert result.output == ""
+        assert result.out == ""
         if shell == "sh":
             assert result.status == 1
         else:
@@ -157,35 +156,35 @@ class TestCommands:
 
     def test_quiet_true(self, shell: str, capsys: pytest.CaptureFixture[str]):
         result = X("echo test", shell=shell, quiet=True)
-        assert result.output == "test\n"
+        assert result.out == "test\n"
         assert result.status == 0
         captured = capsys.readouterr()
         assert captured.out == "Executing: echo test\n"
 
     def test_print_commands_false(self, shell: str, capsys: pytest.CaptureFixture[str]):
         result = X("echo test", shell=shell, print_commands=False)
-        assert result.output == "test\n"
+        assert result.out == "test\n"
         assert result.status == 0
         captured = capsys.readouterr()
         assert captured.out == "test\n"
 
     def test_quiet_true_print_commands_false(self, shell: str, capsys: pytest.CaptureFixture[str]):
         result = X("echo test", shell=shell, quiet=True, print_commands=False)
-        assert result.output == "test\n"
+        assert result.out == "test\n"
         assert result.status == 0
         captured = capsys.readouterr()
-        assert captured.out == ""
+        assert captured.out == ""z
 
 
 class TestShellResolution:
     def test_resolve_shell_from_path(self, parent_shell: ShellInfo):
         result = X("echo test", shell=parent_shell.path)
-        assert result.output == "test\n"
+        assert result.out == "test\n"
         assert result.status == 0
 
     def test_resolve_shell_from_name(self, parent_shell: ShellInfo):
         result = X("echo test", shell=parent_shell.name)
-        assert result.output == "test\n"
+        assert result.out == "test\n"
         assert result.status == 0
 
     def test_invalid_shell_path_raises_error(self):
@@ -212,7 +211,7 @@ class TestShellResolution:
     ):
         monkeypatch.setenv("SHELLRUNNER_SHELL", parent_shell.path)
         result = X("echo test")
-        assert result.output == "test\n"
+        assert result.out == "test\n"
         assert result.status == 0
 
     def test_resolve_shell_name_from_environment_variable(
@@ -222,7 +221,7 @@ class TestShellResolution:
     ):
         monkeypatch.setenv("SHELLRUNNER_SHELL", parent_shell.name)
         result = X("echo test")
-        assert result.output == "test\n"
+        assert result.out == "test\n"
         assert result.status == 0
 
     def test_invalid_shell_path_in_environment_variable_raises_error(self, monkeypatch: pytest.MonkeyPatch):
@@ -243,5 +242,5 @@ class TestShellResolution:
     ):
         monkeypatch.setenv("SHELLRUNNER_SHELL", "invalidshell")
         result = X("echo test", shell=parent_shell.path)
-        assert result.output == "test\n"
+        assert result.out == "test\n"
         assert result.status == 0

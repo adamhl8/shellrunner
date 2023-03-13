@@ -2,33 +2,47 @@ import inspect
 import os
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from shutil import which
-from typing import NamedTuple
+from typing import NamedTuple, TypedDict, Unpack
 
 from psutil import Process
 
+class Options(TypedDict):
+    shell: str | None
+    check: bool | None
+    pipefail: bool | None
+    show_output: bool | None
+    show_commands: bool | None
+
+class ResolvedOptions(NamedTuple):
+    shell: str
+    shell_path: Path
+    check: bool
+    pipefail: bool
+    show_output: bool
+    show_commands: bool
 
 class PipelineError(ChildProcessError):
     pass
 
 
 class ResultTuple(NamedTuple):
-    output: str
+    out: str
     status: int | list[int]
 
 
 # Returns the full path of parent process/shell. That way commands are executed using the same shell that invoked this script.
 def _get_parent_shell_path() -> Path:
     try:
-        shell_path = Process().parent().exe()
+        return Path(Process().parent().exe()).resolve(strict=True)
     except:
         print("An error occured when trying to get the path of the parent shell:")
         raise
-    else:
-        return Path(shell_path).resolve(strict=True)
 
 
+# We only need to do this once (on import) since it should never change between calls of X.
 parent_shell_path = _get_parent_shell_path()
 
 
@@ -40,6 +54,23 @@ def _resolve_shell_path(shell: str) -> Path:
         raise FileNotFoundError(message)
     return Path(which_shell).resolve(strict=True)
 
+def _resolve_options(x_options: dict[str, str | bool | None]) -> Options:
+    for name, value in x_options.items():
+        if value is None:
+            x_options[name] = os.environ.get(f"SHELLRUNNER_{name.upper()}", value)
+
+    shell = x_options["shell"]
+    if shell:
+        x_options["shell_path"] = _resolve_shell_path(shell)
+
+    # If the environment variable (SHELLRUNNER_SHELL) for a shell is set, use that. The passed in shell takes precedence over the environment variable.
+
+    # If given a shell, resolve its path and run the commands with it instead of the invoking shell.
+    if shell:
+        shell_path = 
+
+    resolved_options = Options(**specified_options)
+
 
 # TODO quiet and print_commands environment variables
 
@@ -49,22 +80,21 @@ def _resolve_shell_path(shell: str) -> Path:
 def X(  # noqa: N802
     command: str | list[str],
     *,
-    shell: str = "",
-    check: bool = True,
-    pipefail: bool = True,
-    quiet: bool = False,
-    print_commands: bool = True,
+    shell: str | None = None,
+    check: bool | None = None,
+    pipefail: bool | None = None,
+    show_output: bool | None = None,
+    show_commands: bool | None = None,
 ) -> ResultTuple:
-    shell = shell.strip()
-    shell_path = parent_shell_path
-
-    # If the environment variable (SHELLRUNNER_SHELL) for a shell is set, use that. The passed in shell takes precedence over the environment variable.
-    if not shell:
-        shell = os.environ.get("SHELLRUNNER_SHELL", shell)
-
-    # If given a shell, resolve its path and run the commands with it instead of the invoking shell.
-    if shell:
-        shell_path = _resolve_shell_path(shell)
+    options = {
+        Options()
+        "shell": shell,
+        "check": check,
+        "pipefail": pipefail,
+        "show_output": show_output,
+        "show_commands": show_commands,
+    }
+    options = _resolve_options(x_options)
 
     shell_name = shell_path.name
 
@@ -174,7 +204,11 @@ def X(  # noqa: N802
                 raise PipelineError(message)
 
     # Exit status of a given command is always the last status of a pipeline. Equivalent to $?/$status.
-    status = status_list[-1]
+    try:
+        status = status_list[-1]
+    except IndexError:
+        print("Unable to get exit status of command.")
+        raise
 
     if check and status != 0:
         message = f"Command exited with non-zero status: {status}"
