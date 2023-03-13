@@ -4,8 +4,6 @@ import inspect
 import os
 import subprocess
 import sys
-from codecs import getincrementaldecoder
-from locale import getpreferredencoding
 from pathlib import Path
 from shutil import which
 from typing import NamedTuple
@@ -86,7 +84,7 @@ def X(  # noqa: N802
     status_check = r"""
         import sys
         pipestatus = sys.argv[1]
-        print(b'\\u2f4c'.decode('unicode_escape') + f' : {pipestatus} : ' + b'\\u2f8f'.decode('unicode_escape'))
+        print(b'\\u2f4c'.decode('unicode_escape') + f' : {pipestatus} : ' + b'\\u2f8f'.decode('unicode_escape'), end='')
         for status in [int(x) for x in pipestatus.split()]:
             if status != 0: sys.exit(status)
     """
@@ -124,7 +122,6 @@ def X(  # noqa: N802
     commands = "; ".join(commands)
     # Say the user passes in "echo hello". In the end, the commands variable looks something like this: echo hello; /path/to/python -c "status_check_code_here" $pipestatus || exit $status
 
-    # If we use text=True when invoking Popen, all line endings in the output are converted to "\n". To avoid this, we use the default binary stream and decode the output later.
     output = ""
     pipestatus = ""
     status_list = []
@@ -138,6 +135,7 @@ def X(  # noqa: N802
         commands,
         shell=True,
         executable=shell_path,
+        text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
     ) as process:
@@ -145,12 +143,10 @@ def X(  # noqa: N802
             message = "process.stdout is None"
             raise RuntimeError(message)
 
-        decoder = getincrementaldecoder(getpreferredencoding())()
         capture_output = True
         # If we are still receving output or poll() is None, we know the command is still running.
         # We must use stdout.read(1) rather than readline() in order to properly print commands that prompt the user for input. We must also forcibly flush the stream in the print statement for the same reason.
         while (out := process.stdout.read(1)) or process.poll() is None:
-            out = decoder.decode(out)
             # If we detect our marker, we know we are done with the previous command and have printed $PIPESTATUS. Capture stdout to pipestatus instead.
             if out.startswith("⽌"):
                 capture_output = False
