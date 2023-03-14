@@ -4,3 +4,4 @@ __pypackages__
 .ruff_cahce
 .pdm.toml
 build
+dist
