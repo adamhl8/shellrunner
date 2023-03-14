@@ -4,8 +4,9 @@ from shutil import which
 from typing import NamedTuple
 
 import pytest
+from helpers import EnvironmentVariableError, PipelineError
 from psutil import Process
-from shellrunner import PipelineError, X
+from shellrunner import X
 
 
 class ShellInfo(NamedTuple):
@@ -118,6 +119,11 @@ class TestCommands:
         assert result.out == "/\n"
         assert result.status == 0
 
+
+@pytest.mark.parametrize("shell", shells)
+class TestOptions:
+    # The shell option is tested in the ShellResolution class.
+
     def test_check_false_does_not_raise_error(self, shell: str):
         result = X("false", shell=shell, check=False)
         assert result.out == ""
@@ -174,6 +180,76 @@ class TestCommands:
         assert result.status == 0
         captured = capsys.readouterr()
         assert captured.out == ""
+
+    def test_environment_variable_options(
+        self,
+        shell: str,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ):
+        monkeypatch.setenv("SHELLRUNNER_CHECK", "False")
+        monkeypatch.setenv("SHELLRUNNER_PIPEFAIL", "False")
+        monkeypatch.setenv("SHELLRUNNER_SHOW_OUTPUT", "False")
+        monkeypatch.setenv("SHELLRUNNER_SHOW_COMMANDS", "False")
+
+        result = X("true | false | false", shell=shell)
+        assert result.out == ""
+        if shell == "sh":
+            assert result.status == 1
+        else:
+            assert result.status == [0, 1, 1]
+
+        result = X("echo test", shell=shell)
+        assert result.out == "test\n"
+        assert result.status == 0
+        captured = capsys.readouterr()
+        assert captured.out == ""
+
+    def test_args_take_precedence_over_environment_variables(
+        self,
+        shell: str,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+        child_process_error_message: str,
+        pipeline_error_message: str,
+    ):
+        monkeypatch.setenv("SHELLRUNNER_CHECK", "False")
+        monkeypatch.setenv("SHELLRUNNER_PIPEFAIL", "False")
+        monkeypatch.setenv("SHELLRUNNER_SHOW_OUTPUT", "False")
+        monkeypatch.setenv("SHELLRUNNER_SHOW_COMMANDS", "False")
+
+        with pytest.raises(ChildProcessError) as cm:
+            X("false", shell=shell, check=True)
+        assert str(cm.value).startswith(child_process_error_message)
+
+        if shell == "sh":
+            with pytest.raises(ChildProcessError) as cm:
+                X("true | false | false", shell=shell, check=True, pipefail=True)
+            assert str(cm.value).startswith(child_process_error_message)
+        else:
+            with pytest.raises(PipelineError) as cm:
+                X("true | false | false", shell=shell, check=True, pipefail=True)
+            assert str(cm.value).startswith(pipeline_error_message)
+
+        result = X("echo test", shell=shell, show_commands=True, show_output=True)
+        assert result.out == "test\n"
+        assert result.status == 0
+        captured = capsys.readouterr()
+        assert captured.out == "Executing: echo test\ntest\n"
+
+    def test_invalid_bool_value_for_environment_variable_raises_error(
+        self,
+        shell: str,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        monkeypatch.setenv("SHELLRUNNER_CHECK", "foo")
+
+        with pytest.raises(EnvironmentVariableError) as cm:
+            X("false", shell=shell)
+        assert (
+            str(cm.value)
+            == 'Received invalid value for environment variable SHELLRUNNER_CHECK: "foo"\nExpected "True" or "False" (case-insensitive).'
+        )
 
 
 class TestShellResolution:

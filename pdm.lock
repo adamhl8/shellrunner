@@ -118,7 +118,7 @@ summary = "Typing stubs for psutil"
 
 [metadata]
 lock_version = "4.1"
-content_hash = "sha256:cef018d2c9db437d753f71cbfb284865e61e28d74693f6123b675f8248076782"
+content_hash = "sha256:1e257ff4cafc0481c6c7df5a7bdfc316b75f07ec5a6b7dca773fbe10011d3040"
 
 [metadata.files]
 "attrs 22.2.0" = [

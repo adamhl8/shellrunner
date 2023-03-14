@@ -1,62 +1,20 @@
 import inspect
-import os
 import subprocess
 import sys
-from pathlib import Path
-from shutil import which
-from typing import NamedTuple
 
-from psutil import Process
-
-
-class PipelineError(ChildProcessError):
-    pass
-
-
-class ResultTuple(NamedTuple):
-    out: str
-    status: int | list[int]
-
-
-# Returns the full path of parent process/shell. That way commands are executed using the same shell that invoked this script.
-def _get_parent_shell_path() -> Path:
-    try:
-        return Path(Process().parent().exe()).resolve(strict=True)
-    except:
-        print("An error occured when trying to get the path of the parent shell:")
-        raise
-
+from helpers import Env, PipelineError, ResultTuple, get_parent_shell_path, resolve_option, resolve_shell_path
 
 # We only need to do this once (on import) since it should never change between calls of X.
-parent_shell_path = _get_parent_shell_path()
+parent_shell_path = get_parent_shell_path()
 
 
-# Returns the full path of a given path or executable name. e.g. "/bin/bash" or "bash"
-def _resolve_shell_path(shell: str) -> Path:
-    which_shell = which(shell, os.X_OK)
-    if which_shell is None:
-        message = f'Unable to resolve the path to the executable: "{shell}". It is either not on your PATH or the specified file is not executable.'
-        raise FileNotFoundError(message)
-    return Path(which_shell).resolve(strict=True)
-
-
-class Env:
-    @staticmethod
-    def get_bool(env_var: str) -> bool | None:
-        value = os.getenv(env_var)
-        if value is None:
-            return None
-        if value.title() == "True":
-            return True
-        if value.title() == "False":
-            return False
-
-        message = f'Received invalid value for environment variable {env_var}: "{value}"\nExpected "True" or "False" (case-insensitive).'
-        raise ValueError(message)
-
-    @staticmethod
-    def get_str(env_var: str) -> str | None:
-        return os.getenv(env_var)
+# Parameters:
+# command - String or list of strings that will be executed by the shell.
+# shell (Optional) - Shell that will be used to execute the commands. Can be a path or simply the name (e.g. "/bin/bash", "bash"). | Default is the shell that invoked this script.
+# check (Optional) - If True, an error will be thrown if a command exits with a non-zero status. Equivalent to bash's "set -e". | Default is True
+# pipefail (Optional) - If True, an error will be thrown if any command in a pipeline exits with a non-zero status. Equivalent to bash's "set -o pipefail". | Default is True
+# show_output (Optional) - If True, command output will be printed. | Default is True
+# show_commands (Optional) - If True, the current command will be printed before execution. | Default is True
 
 
 def X(  # noqa: N802
@@ -68,15 +26,15 @@ def X(  # noqa: N802
     show_output: bool | None = None,
     show_commands: bool | None = None,
 ) -> ResultTuple:
-    shell = shell if shell is not None else Env.get_str("SHELLRUNNER_SHELL") or ""
+    # We default each argument to None rather than the "real" defaults so we can detect if the user actually passed something in.
+    # Passed in arguments take precedence over the related environment variable.
+    shell = resolve_option(shell, Env.get_str("SHELLRUNNER_SHELL"), default="")
     # If given a shell, resolve its path and run the commands with it instead of the invoking shell.
-    shell_path = _resolve_shell_path(shell) if shell else parent_shell_path
-    check = check if check is not None else Env.get_bool("SHELLRUNNER_CHECK") or True
-    pipefail = pipefail if pipefail is not None else Env.get_bool("SHELLRUNNER_PIPEFAIL") or True
-    show_output = show_output if show_output is not None else Env.get_bool("SHELLRUNNER_SHOW_OUTPUT") or True
-    show_commands = show_commands if show_commands is not None else Env.get_bool("SHELLRUNNER_SHOW_COMMANDS") or True
-
-    shell_name = shell_path.name
+    shell_path = resolve_shell_path(shell) if shell else parent_shell_path
+    check = resolve_option(check, Env.get_bool("SHELLRUNNER_CHECK"), default=True)
+    pipefail = resolve_option(pipefail, Env.get_bool("SHELLRUNNER_PIPEFAIL"), default=True)
+    show_output = resolve_option(show_output, Env.get_bool("SHELLRUNNER_SHOW_OUTPUT"), default=True)
+    show_commands = resolve_option(show_commands, Env.get_bool("SHELLRUNNER_SHOW_COMMANDS"), default=True)
 
     # If a single command is passed in, put it in a list to simplify processing later on.
     if isinstance(command, str):
@@ -106,6 +64,7 @@ def X(  # noqa: N802
     # Remove unnecessary whitespace.
     status_check = inspect.cleandoc(status_check)
 
+    shell_name = shell_path.name
     # Default to sh. "Pure" POSIX shells do not have $PIPESTATUS so only the exit status of the last command in a pipeline is available.
     pipestatus_var = r"$?"
     status_var = r"$?"
