@@ -154,26 +154,26 @@ class TestCommands:
         else:
             assert result.status == [0, 1, 1]
 
-    def test_quiet_true(self, shell: str, capsys: pytest.CaptureFixture[str]):
-        result = X("echo test", shell=shell, quiet=True)
+    def test_show_output_false(self, shell: str, capsys: pytest.CaptureFixture[str]):
+        result = X("echo test", shell=shell, show_output=False)
         assert result.out == "test\n"
         assert result.status == 0
         captured = capsys.readouterr()
         assert captured.out == "Executing: echo test\n"
 
-    def test_print_commands_false(self, shell: str, capsys: pytest.CaptureFixture[str]):
-        result = X("echo test", shell=shell, print_commands=False)
+    def test_show_commands_false(self, shell: str, capsys: pytest.CaptureFixture[str]):
+        result = X("echo test", shell=shell, show_commands=False)
         assert result.out == "test\n"
         assert result.status == 0
         captured = capsys.readouterr()
         assert captured.out == "test\n"
 
-    def test_quiet_true_print_commands_false(self, shell: str, capsys: pytest.CaptureFixture[str]):
-        result = X("echo test", shell=shell, quiet=True, print_commands=False)
+    def test_show_output_false_show_commands_false(self, shell: str, capsys: pytest.CaptureFixture[str]):
+        result = X("echo test", shell=shell, show_output=False, show_commands=False)
         assert result.out == "test\n"
         assert result.status == 0
         captured = capsys.readouterr()
-        assert captured.out == ""z
+        assert captured.out == ""
 
 
 class TestShellResolution:

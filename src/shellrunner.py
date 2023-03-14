@@ -2,27 +2,12 @@ import inspect
 import os
 import subprocess
 import sys
-from dataclasses import dataclass
 from pathlib import Path
 from shutil import which
-from typing import NamedTuple, TypedDict, Unpack
+from typing import NamedTuple
 
 from psutil import Process
 
-class Options(TypedDict):
-    shell: str | None
-    check: bool | None
-    pipefail: bool | None
-    show_output: bool | None
-    show_commands: bool | None
-
-class ResolvedOptions(NamedTuple):
-    shell: str
-    shell_path: Path
-    check: bool
-    pipefail: bool
-    show_output: bool
-    show_commands: bool
 
 class PipelineError(ChildProcessError):
     pass
@@ -54,29 +39,26 @@ def _resolve_shell_path(shell: str) -> Path:
         raise FileNotFoundError(message)
     return Path(which_shell).resolve(strict=True)
 
-def _resolve_options(x_options: dict[str, str | bool | None]) -> Options:
-    for name, value in x_options.items():
+
+class Env:
+    @staticmethod
+    def get_bool(env_var: str) -> bool | None:
+        value = os.getenv(env_var)
         if value is None:
-            x_options[name] = os.environ.get(f"SHELLRUNNER_{name.upper()}", value)
+            return None
+        if value.title() == "True":
+            return True
+        if value.title() == "False":
+            return False
 
-    shell = x_options["shell"]
-    if shell:
-        x_options["shell_path"] = _resolve_shell_path(shell)
+        message = f'Received invalid value for environment variable {env_var}: "{value}"\nExpected "True" or "False" (case-insensitive).'
+        raise ValueError(message)
 
-    # If the environment variable (SHELLRUNNER_SHELL) for a shell is set, use that. The passed in shell takes precedence over the environment variable.
-
-    # If given a shell, resolve its path and run the commands with it instead of the invoking shell.
-    if shell:
-        shell_path = 
-
-    resolved_options = Options(**specified_options)
-
-
-# TODO quiet and print_commands environment variables
+    @staticmethod
+    def get_str(env_var: str) -> str | None:
+        return os.getenv(env_var)
 
 
-# If check=True (default), an error will be thrown on non-zero exit status.
-# If pipefail=True (default), an error will be thrown on non-zero exit status of any command in a pipeline.
 def X(  # noqa: N802
     command: str | list[str],
     *,
@@ -86,15 +68,13 @@ def X(  # noqa: N802
     show_output: bool | None = None,
     show_commands: bool | None = None,
 ) -> ResultTuple:
-    options = {
-        Options()
-        "shell": shell,
-        "check": check,
-        "pipefail": pipefail,
-        "show_output": show_output,
-        "show_commands": show_commands,
-    }
-    options = _resolve_options(x_options)
+    shell = shell if shell is not None else Env.get_str("SHELLRUNNER_SHELL") or ""
+    # If given a shell, resolve its path and run the commands with it instead of the invoking shell.
+    shell_path = _resolve_shell_path(shell) if shell else parent_shell_path
+    check = check if check is not None else Env.get_bool("SHELLRUNNER_CHECK") or True
+    pipefail = pipefail if pipefail is not None else Env.get_bool("SHELLRUNNER_PIPEFAIL") or True
+    show_output = show_output if show_output is not None else Env.get_bool("SHELLRUNNER_SHOW_OUTPUT") or True
+    show_commands = show_commands if show_commands is not None else Env.get_bool("SHELLRUNNER_SHOW_COMMANDS") or True
 
     shell_name = shell_path.name
 
@@ -155,7 +135,7 @@ def X(  # noqa: N802
     status_list = []
 
     # Print command_list rather than commands so we don't see the appended status_checks.
-    if print_commands:
+    if show_commands:
         print(f"Executing: {'; '.join(command_list)}")
 
     # By using the Popen context manager via with, standard file descriptors are automatically closed.
@@ -180,7 +160,7 @@ def X(  # noqa: N802
                 capture_output = False
             if capture_output and out:
                 process.stdout.flush()  # Probably unnecessary? Not sure if this flushes the same stream that we print to, or if this flushes the stream that is "internal" to the spawned shell.
-                if not quiet:
+                if show_output:
                     # We would be adding extra \n to the output if we don't specify end="".
                     print(out, end="", flush=True)
                 output += out
