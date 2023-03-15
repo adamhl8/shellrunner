@@ -1,13 +1,11 @@
 [project]
 name = "python-shellrunner"
-version = "0.1.0"
+version = "0.1.1"
 description = "A tool for writing safe shell scripts in python."
 authors = [
     {name = "adamhl8", email = "adamhl@pm.me"},
 ]
-dependencies = [
-    "psutil>=5.9.4",
-]
+dependencies = []
 requires-python = ">=3.10"
 readme = "README.md"
 license = {text = "MIT"}
@@ -59,7 +57,7 @@ target-version = "py310"
 select = ["E", "F", "W", "I", "N", "UP", "BLE", "FBT", "B", "A", "COM", "C4", "T10", "EM", "EXE", "ISC", "ICN", "G",
 "INP", "PIE", "PYI", "PT", "Q", "RSE", "RET", "SLF", "SIM", "TID", "TCH", "ARG", "PTH", "ERA", "PL", "PLC", "PLE",
 "PLR", "PLW", "TRY", "RUF"]
-ignore = ["E501", "PLR0915", "PLR0912", "PLR0913"]
+ignore = ["E501", "PLR0915", "PLR0912", "PLR0913", "PLC1901"]
 
 [build-system]
 requires = ["pdm-backend"]

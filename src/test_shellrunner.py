@@ -4,8 +4,7 @@ from shutil import which
 from typing import NamedTuple
 
 import pytest
-from helpers import EnvironmentVariableError, PipelineError
-from psutil import Process
+from helpers import EnvironmentVariableError, PipelineError, get_parent_shell_path
 from shellrunner import X
 
 
@@ -26,7 +25,7 @@ def pipeline_error_message():
 
 # This code is separated from the parent_shell fixture so we can call it separately if needed.
 def get_parent_shell_info():
-    shell_path = Path(Process().parent().exe()).resolve(strict=True)
+    shell_path = get_parent_shell_path()
 
     # If pytest is invoked via pdm, the parent process will be python, not the shell, so we fallback to bash.
     if shell_path.name.startswith("python"):

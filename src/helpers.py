@@ -1,9 +1,8 @@
 import os
+import subprocess
 from pathlib import Path
 from shutil import which
 from typing import NamedTuple, TypeVar
-
-from psutil import Process
 
 
 class PipelineError(ChildProcessError):
@@ -22,10 +21,18 @@ class ResultTuple(NamedTuple):
 # Returns the full path of parent process/shell. That way commands are executed using the same shell that invoked this script.
 def get_parent_shell_path() -> Path:
     try:
-        return Path(Process().parent().exe()).resolve(strict=True)
+        ppid = os.getppid()
+        path = subprocess.run(
+            ["readlink", f"/proc/{ppid}/exe"],
+            capture_output=True,
+            check=True,
+            text=True,
+        ).stdout.strip()
     except:
         print("An error occured when trying to get the path of the parent shell:")
         raise
+    else:
+        return Path(path).resolve(strict=True)
 
 
 # Returns the full path of a given path or executable name. e.g. "/bin/bash" or "bash"
