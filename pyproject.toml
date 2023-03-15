@@ -11,6 +11,22 @@ dependencies = [
 requires-python = ">=3.10"
 readme = "README.md"
 license = {text = "MIT"}
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3.10",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX",
+    "Operating System :: Unix",
+    "Programming Language :: Unix Shell",
+    "Topic :: System :: Shells",
+    "Topic :: System :: System Shells",
+]
+keywords = ["shell", "bash"]
+
+[project.urls]
+"Homepage" = "https://github.com/adamhl8/python-shellrunner"
+"Source" = "https://github.com/adamhl8/python-shellrunner"
+"Bug Tracker" = "https://github.com/adamhl8/python-shellrunner/issues"
 
 [tool.pdm.dev-dependencies]
 dev = [
@@ -32,7 +48,6 @@ pyroma = {cmd = "pyroma ."}
 [tool.pyright]
 typeCheckingMode = "strict"
 extraPaths = ["__pypackages__/3.10/lib", "src"]
-
 
 [tool.black]
 line-length = 120
