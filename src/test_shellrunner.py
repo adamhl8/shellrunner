@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 from shutil import which
 from typing import NamedTuple
@@ -270,6 +271,11 @@ class TestShellResolution:
         with pytest.raises(FileNotFoundError) as cm:
             X("echo test", shell="invalidshell")
         assert str(cm.value).startswith('Unable to resolve the path to the executable: "invalidshell".')
+
+    def test_python_as_parent_process_raises_error(self):
+        with pytest.raises(ProcessLookupError) as cm:
+            X("echo test", shell="python")
+        assert re.fullmatch("Process .+ is not a shell. Please provide a shell name or path.", str(cm.value))
 
     def test_non_exectuable_file_raises_error(self, tmp_path: Path):
         file = tmp_path / "non_exectuable"

@@ -1,7 +1,7 @@
 [project]
 name = "python-shellrunner"
-version = "0.1.1"
-description = "A tool for writing safe shell scripts in python."
+version = "0.1.0"
+description = "A package for writing safe shell scripts in python."
 authors = [
     {name = "adamhl8", email = "adamhl@pm.me"},
 ]
@@ -19,7 +19,7 @@ classifiers = [
     "Topic :: System :: Shells",
     "Topic :: System :: System Shells",
 ]
-keywords = ["shell", "bash"]
+keywords = ["shell", "bash", "zsh", "fish"]
 
 [project.urls]
 "Homepage" = "https://github.com/adamhl8/python-shellrunner"

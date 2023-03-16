@@ -31,6 +31,12 @@ def X(  # noqa: N802
     shell = resolve_option(shell, Env.get_str("SHELLRUNNER_SHELL"), default="")
     # If given a shell, resolve its path and run the commands with it instead of the invoking shell.
     shell_path = resolve_shell_path(shell) if shell else parent_shell_path
+    shell_name = shell_path.name
+    # If for some reason python is the parent process (or if the user passes in python) we can't continue.
+    if shell_name.startswith("python"):
+        message = f'Process "{shell_name}" is not a shell. Please provide a shell name or path.'
+        raise ProcessLookupError(message)
+
     check = resolve_option(check, Env.get_bool("SHELLRUNNER_CHECK"), default=True)
     pipefail = resolve_option(pipefail, Env.get_bool("SHELLRUNNER_PIPEFAIL"), default=True)
     show_output = resolve_option(show_output, Env.get_bool("SHELLRUNNER_SHOW_OUTPUT"), default=True)
@@ -64,7 +70,6 @@ def X(  # noqa: N802
     # Remove unnecessary whitespace.
     status_check = inspect.cleandoc(status_check)
 
-    shell_name = shell_path.name
     # Default to sh. "Pure" POSIX shells do not have $PIPESTATUS so only the exit status of the last command in a pipeline is available.
     pipestatus_var = r"$?"
     status_var = r"$?"
