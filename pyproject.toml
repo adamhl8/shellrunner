@@ -36,20 +36,19 @@ dev = [
 ]
 
 [tool.pdm.scripts]
+test = {cmd = "pytest src"}
 pyright = {shell = "pyright src"}
 ruff = {cmd = "ruff check src"}
 lint = {composite = ["pyright", "ruff"]}
 format = {cmd = "black src"}
-test = {cmd = "pytest src"}
 pyroma = {cmd = "pyroma ."}
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
 
 [tool.pyright]
 typeCheckingMode = "strict"
-extraPaths = ["__pypackages__/3.10/lib", "src"]
-
-[tool.black]
-line-length = 120
-target-version = ["py310"]
+extraPaths = ["__pypackages__/3.10/lib"]
 
 [tool.ruff]
 line-length = 120
@@ -58,6 +57,10 @@ select = ["E", "F", "W", "I", "N", "UP", "BLE", "FBT", "B", "A", "COM", "C4", "T
 "INP", "PIE", "PYI", "PT", "Q", "RSE", "RET", "SLF", "SIM", "TID", "TCH", "ARG", "PTH", "ERA", "PL", "PLC", "PLE",
 "PLR", "PLW", "TRY", "RUF"]
 ignore = ["E501", "PLR0915", "PLR0912", "PLR0913", "PLC1901"]
+
+[tool.black]
+line-length = 120
+target-version = ["py310"]
 
 [build-system]
 requires = ["pdm-backend"]
