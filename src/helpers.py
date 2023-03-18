@@ -35,7 +35,7 @@ def resolve_shell_path(shell: str) -> Path:
     return Path(which_shell).resolve(strict=True)
 
 
-Option = TypeVar("Option", str, bool)
+Option = TypeVar("Option")
 
 
 # If option_arg is not None (something was passed in), return that value. If None, return the value of the related environment variable. Otherwise, fallback to the default value.
