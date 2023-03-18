@@ -10,6 +10,7 @@ Write safe shell scripts in Python. Combine the streamlined utility of a shell w
   - [Multiple Commands](#multiple-commands)
 - [Options](#options)
   - [Output](#output)
+  - [Environment Variables](#environment-variables)
 - [Examples](#examples)
 
 ## Install
@@ -164,6 +165,10 @@ Each command is run in the same shell instance and goes through the normal error
 
 There are a few keyword arguments you can provide to adjust the behavior of `X`:
 
+```python
+X("command", shell="bash", check=True, show_output=True, show_commands=True)
+```
+
 `shell: str` (Default: the invoking shell) - Shell that will be used to execute the commands. Can be a path or simply the name (e.g. "/bin/bash", "bash").
 
 `check: bool` (Default: True) - If True, an error will be thrown if a command exits with a non-zero status.
@@ -190,6 +195,31 @@ hello world
 To hide the `Executing:` lines, set `show_commands=False`.
 
 To hide actual command output, set `show_output=False`.
+
+### Environment Variables
+
+Each option also has a corresponding environment variable to allow you to set these options "globally" for your script:
+
+`shell` = `SHELLRUNNER_SHELL`
+
+`check` = `SHELLRUNNER_CHECK`
+
+`show_output` = `SHELLRUNNER_SHOW_OUTPUT`
+
+`show_commands` = `SHELLRUNNER_SHOW_COMMANDS`
+
+Environment variables are evaluated on each call of `X`, so you could also do something like this:
+
+```python
+# Pretend that before running this file you set: export SHELLRUNNER_SHOW_OUTPUT="False"
+X("echo hello")
+# No output
+
+# Now you want to see output
+os.environ["SHELLRUNNER_SHOW_OUTPUT"] = "True"
+X("echo hello")
+# hello
+```
 
 ## Examples
 
