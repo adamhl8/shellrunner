@@ -5,7 +5,7 @@ from shutil import which
 from typing import NamedTuple
 
 import pytest
-from helpers import EnvironmentVariableError, PipelineError, get_parent_shell_path
+from helpers import EnvironmentVariableError, ShellCommandError, get_parent_shell_path
 from shellrunner import X
 
 
@@ -15,13 +15,8 @@ class ShellInfo(NamedTuple):
 
 
 @pytest.fixture()
-def child_process_error_message():
+def shell_command_error_message():
     return "Command exited with non-zero status:"
-
-
-@pytest.fixture()
-def pipeline_error_message():
-    return "Pipeline exited with non-zero status:"
 
 
 # This code is separated from the parent_shell fixture so we can call it separately if needed.
@@ -51,73 +46,71 @@ for shell in shells:
         raise FileNotFoundError(message)
 
 
-# When using sh (or any other shell without $PIPESTATUS), we must treat pipelines as a single command when it comes to their exit status.
-# Which means that sh will never raise a PipelineError.
+# When using sh (or any other shell without $PIPESTATUS), we will only ever receive a single exit status.
 @pytest.mark.parametrize("shell", shells)
 class TestCommands:
     def test_single_command(self, shell: str):
         result = X("echo test", shell=shell)
         assert result.out == "test\n"
-        assert result.status == 0
+        assert result.status == [0]
 
-    def test_single_command_error(self, shell: str, child_process_error_message: str):
-        with pytest.raises(ChildProcessError) as cm:
+    def test_single_command_error(self, shell: str, shell_command_error_message: str):
+        with pytest.raises(ShellCommandError) as cm:
             X("false", shell=shell)
-        assert str(cm.value).startswith(child_process_error_message)
+        assert str(cm.value).startswith(shell_command_error_message)
 
-    def test_unknown_command_raises_error(self, shell: str, child_process_error_message: str):
-        with pytest.raises(ChildProcessError) as cm:
+    def test_unknown_command_raises_error(self, shell: str, shell_command_error_message: str):
+        with pytest.raises(ShellCommandError) as cm:
             X("foo", shell=shell)
-        assert str(cm.value).startswith(child_process_error_message)
+        assert str(cm.value).startswith(shell_command_error_message)
 
     def test_pipeline(self, shell: str):
         result = X("echo test | grep test", shell=shell)
         assert result.out == "test\n"
         if shell == "sh":
-            assert result.status == 0
+            assert result.status == [0]
         else:
             assert result.status == [0, 0]
 
-    def test_pipeline_error(self, shell: str, pipeline_error_message: str, child_process_error_message: str):
+    def test_pipeline_error(self, shell: str, shell_command_error_message: str):
+        # sh does not have $PIPESTATUS so we shouldn't get an error if the non-zero exit was not the last command.
         if shell == "sh":
-            with pytest.raises(ChildProcessError) as cm:
-                X("true | true | false", shell=shell)
-            assert str(cm.value).startswith(child_process_error_message)
+            result = X("true | false | true", shell=shell)
+            assert result.out == ""
+            assert result.status == [0]
         else:
-            with pytest.raises(PipelineError) as cm:
-                X("true | true | false", shell=shell)
-            assert str(cm.value).startswith(pipeline_error_message)
+            with pytest.raises(ShellCommandError) as cm:
+                X("true | false | true", shell=shell)
+            assert str(cm.value).startswith(shell_command_error_message)
 
-    # fish does not execute a pipeline at all if any command is unknown, so we only get one exit status
-    def test_pipeline_with_unknown_command_raises_error(
-        self,
-        shell: str,
-        pipeline_error_message: str,
-        child_process_error_message: str,
-    ):
-        if shell == "sh" or shell == "fish":
-            with pytest.raises(ChildProcessError) as cm:
-                X("true | foo", shell=shell)
-            assert str(cm.value).startswith(child_process_error_message)
-        else:
-            with pytest.raises(PipelineError) as cm:
-                X("true | foo", shell=shell)
-            assert str(cm.value).startswith(pipeline_error_message)
+        with pytest.raises(ShellCommandError) as cm:
+            X("true | true | false", shell=shell)
+        assert str(cm.value).startswith(shell_command_error_message)
+
+    def test_pipeline_with_unknown_command_raises_error(self, shell: str, shell_command_error_message: str):
+        with pytest.raises(ShellCommandError) as cm:
+            X("true | foo", shell=shell)
+        assert str(cm.value).startswith(shell_command_error_message)
 
     def test_command_list(self, shell: str):
         result = X(["echo test", "echo test"], shell=shell)
         assert result.out == "test\ntest\n"
-        assert result.status == 0
+        assert result.status == [0]
 
-    def test_command_list_error(self, shell: str, child_process_error_message: str):
-        with pytest.raises(ChildProcessError) as cm:
+    def test_command_list_status_is_last_command(self, shell: str):
+        result = X(["echo test | grep test", "echo test"], shell=shell)
+        assert result.out == "test\ntest\n"
+        assert result.status == [0]
+
+    def test_command_list_error(self, shell: str, shell_command_error_message: str):
+        with pytest.raises(ShellCommandError) as cm:
             X(["echo test", "false"], shell=shell)
-        assert str(cm.value).startswith(child_process_error_message)
+        assert str(cm.value).startswith(shell_command_error_message)
 
     def test_command_list_maintains_environment(self, shell: str):
         result = X(["cd /", "pwd"], shell=shell)
         assert result.out == "/\n"
-        assert result.status == 0
+        assert result.status == [0]
 
 
 @pytest.mark.parametrize("shell", shells)
@@ -127,57 +120,39 @@ class TestOptions:
     def test_check_false_does_not_raise_error(self, shell: str):
         result = X("false", shell=shell, check=False)
         assert result.out == ""
-        assert result.status == 1
+        assert result.status == [1]
+
+    def test_check_false_with_pipeline_does_not_raise_error(self, shell: str):
+        result = X("true | false | false", shell=shell, check=False)
+        assert result.out == ""
+        if shell == "sh":
+            assert result.status == [1]
+        else:
+            assert result.status == [0, 1, 1]
 
     def test_check_false_does_not_stop_execution(self, shell: str):
         result = X(["false", "echo test"], shell=shell, check=False)
         assert result.out == "test\n"
-        assert result.status == 0
-
-    def test_pipefail_false_does_not_raise_error(self, shell: str):
-        result = X("true | false | true", shell=shell, pipefail=False)
-        assert result.out == ""
-        if shell == "sh":
-            assert result.status == 0
-        else:
-            assert result.status == [0, 1, 0]
-
-    # Consistent with bash: set -e
-    def test_pipefail_false_raises_error_if_last_command_errors(self, shell: str, child_process_error_message: str):
-        with pytest.raises(ChildProcessError) as cm:
-            X("true | true | false", shell=shell, pipefail=False)
-        assert str(cm.value).startswith(child_process_error_message)
-
-    def test_check_false_pipefail_false(self, shell: str):
-        result = X("false", shell=shell, check=False, pipefail=False)
-        assert result.out == ""
-        assert result.status == 1
-
-        result = X("true | false | false", shell=shell, check=False, pipefail=False)
-        assert result.out == ""
-        if shell == "sh":
-            assert result.status == 1
-        else:
-            assert result.status == [0, 1, 1]
+        assert result.status == [0]
 
     def test_show_output_false(self, shell: str, capsys: pytest.CaptureFixture[str]):
         result = X("echo test", shell=shell, show_output=False)
         assert result.out == "test\n"
-        assert result.status == 0
+        assert result.status == [0]
         captured = capsys.readouterr()
         assert captured.out == "Executing: echo test\n"
 
     def test_show_commands_false(self, shell: str, capsys: pytest.CaptureFixture[str]):
         result = X("echo test", shell=shell, show_commands=False)
         assert result.out == "test\n"
-        assert result.status == 0
+        assert result.status == [0]
         captured = capsys.readouterr()
         assert captured.out == "test\n"
 
     def test_show_output_false_show_commands_false(self, shell: str, capsys: pytest.CaptureFixture[str]):
         result = X("echo test", shell=shell, show_output=False, show_commands=False)
         assert result.out == "test\n"
-        assert result.status == 0
+        assert result.status == [0]
         captured = capsys.readouterr()
         assert captured.out == ""
 
@@ -188,20 +163,19 @@ class TestOptions:
         capsys: pytest.CaptureFixture[str],
     ):
         monkeypatch.setenv("SHELLRUNNER_CHECK", "False")
-        monkeypatch.setenv("SHELLRUNNER_PIPEFAIL", "False")
         monkeypatch.setenv("SHELLRUNNER_SHOW_OUTPUT", "False")
         monkeypatch.setenv("SHELLRUNNER_SHOW_COMMANDS", "False")
 
         result = X("true | false | false", shell=shell)
         assert result.out == ""
         if shell == "sh":
-            assert result.status == 1
+            assert result.status == [1]
         else:
             assert result.status == [0, 1, 1]
 
         result = X("echo test", shell=shell)
         assert result.out == "test\n"
-        assert result.status == 0
+        assert result.status == [0]
         captured = capsys.readouterr()
         assert captured.out == ""
 
@@ -210,30 +184,19 @@ class TestOptions:
         shell: str,
         monkeypatch: pytest.MonkeyPatch,
         capsys: pytest.CaptureFixture[str],
-        child_process_error_message: str,
-        pipeline_error_message: str,
+        shell_command_error_message: str,
     ):
         monkeypatch.setenv("SHELLRUNNER_CHECK", "False")
-        monkeypatch.setenv("SHELLRUNNER_PIPEFAIL", "False")
         monkeypatch.setenv("SHELLRUNNER_SHOW_OUTPUT", "False")
         monkeypatch.setenv("SHELLRUNNER_SHOW_COMMANDS", "False")
 
-        with pytest.raises(ChildProcessError) as cm:
+        with pytest.raises(ShellCommandError) as cm:
             X("false", shell=shell, check=True)
-        assert str(cm.value).startswith(child_process_error_message)
-
-        if shell == "sh":
-            with pytest.raises(ChildProcessError) as cm:
-                X("true | false | false", shell=shell, check=True, pipefail=True)
-            assert str(cm.value).startswith(child_process_error_message)
-        else:
-            with pytest.raises(PipelineError) as cm:
-                X("true | false | false", shell=shell, check=True, pipefail=True)
-            assert str(cm.value).startswith(pipeline_error_message)
+        assert str(cm.value).startswith(shell_command_error_message)
 
         result = X("echo test", shell=shell, show_commands=True, show_output=True)
         assert result.out == "test\n"
-        assert result.status == 0
+        assert result.status == [0]
         captured = capsys.readouterr()
         assert captured.out == "Executing: echo test\ntest\n"
 
@@ -256,12 +219,12 @@ class TestShellResolution:
     def test_resolve_shell_from_path(self, parent_shell: ShellInfo):
         result = X("echo test", shell=parent_shell.path)
         assert result.out == "test\n"
-        assert result.status == 0
+        assert result.status == [0]
 
     def test_resolve_shell_from_name(self, parent_shell: ShellInfo):
         result = X("echo test", shell=parent_shell.name)
         assert result.out == "test\n"
-        assert result.status == 0
+        assert result.status == [0]
 
     def test_invalid_shell_path_raises_error(self):
         with pytest.raises(FileNotFoundError):
@@ -293,7 +256,7 @@ class TestShellResolution:
         monkeypatch.setenv("SHELLRUNNER_SHELL", parent_shell.path)
         result = X("echo test")
         assert result.out == "test\n"
-        assert result.status == 0
+        assert result.status == [0]
 
     def test_resolve_shell_name_from_environment_variable(
         self,
@@ -303,7 +266,7 @@ class TestShellResolution:
         monkeypatch.setenv("SHELLRUNNER_SHELL", parent_shell.name)
         result = X("echo test")
         assert result.out == "test\n"
-        assert result.status == 0
+        assert result.status == [0]
 
     def test_invalid_shell_path_in_environment_variable_raises_error(self, monkeypatch: pytest.MonkeyPatch):
         monkeypatch.setenv("SHELLRUNNER_SHELL", "/invalid/shell/path")
@@ -324,4 +287,4 @@ class TestShellResolution:
         monkeypatch.setenv("SHELLRUNNER_SHELL", "invalidshell")
         result = X("echo test", shell=parent_shell.path)
         assert result.out == "test\n"
-        assert result.status == 0
+        assert result.status == [0]

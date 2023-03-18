@@ -2,7 +2,7 @@ import inspect
 import subprocess
 import sys
 
-from helpers import Env, PipelineError, ResultTuple, get_parent_shell_path, resolve_option, resolve_shell_path
+from helpers import Env, ResultTuple, ShellCommandError, get_parent_shell_path, resolve_option, resolve_shell_path
 
 # We only need to do this once (on import) since it should never change between calls of X.
 parent_shell_path = get_parent_shell_path()
@@ -12,7 +12,6 @@ parent_shell_path = get_parent_shell_path()
 # command - String or list of strings that will be executed by the shell.
 # shell (Optional) - Shell that will be used to execute the commands. Can be a path or simply the name (e.g. "/bin/bash", "bash"). | Default is the shell that invoked this script.
 # check (Optional) - If True, an error will be thrown if a command exits with a non-zero status. Equivalent to bash's "set -e". | Default is True
-# pipefail (Optional) - If True, an error will be thrown if any command in a pipeline exits with a non-zero status. Equivalent to bash's "set -o pipefail". | Default is True
 # show_output (Optional) - If True, command output will be printed. | Default is True
 # show_commands (Optional) - If True, the current command will be printed before execution. | Default is True
 
@@ -22,7 +21,6 @@ def X(  # noqa: N802
     *,
     shell: str | None = None,
     check: bool | None = None,
-    pipefail: bool | None = None,
     show_output: bool | None = None,
     show_commands: bool | None = None,
 ) -> ResultTuple:
@@ -38,7 +36,6 @@ def X(  # noqa: N802
         raise ProcessLookupError(message)
 
     check = resolve_option(check, Env.get_bool("SHELLRUNNER_CHECK"), default=True)
-    pipefail = resolve_option(pipefail, Env.get_bool("SHELLRUNNER_PIPEFAIL"), default=True)
     show_output = resolve_option(show_output, Env.get_bool("SHELLRUNNER_SHOW_OUTPUT"), default=True)
     show_commands = resolve_option(show_commands, Env.get_bool("SHELLRUNNER_SHOW_COMMANDS"), default=True)
 
@@ -139,23 +136,15 @@ def X(  # noqa: N802
                     status_list = [int(x) for x in pipestatus.split()]
                 capture_output = True
 
-    # Only check for a pipeline error if there is more than 1 status.
-    command_was_pipeline = len(status_list) > 1
-    if pipefail and command_was_pipeline:
+    # If we don't recieve any exit status, something went wrong.
+    if not status_list:
+        message = "Something went wrong. Failed to capture an exit status."
+        raise RuntimeError(message)
+
+    if check:
         for status in status_list:
             if status != 0:
-                message = f"Pipeline exited with non-zero status: {status_list}"
-                raise PipelineError(message)
+                message = f"Command exited with non-zero status: {status}"
+                raise ShellCommandError(message)
 
-    # Exit status of a given command is always the last status of a pipeline. Equivalent to $?/$status.
-    try:
-        status = status_list[-1]
-    except IndexError:
-        print("Unable to get exit status of command.")
-        raise
-
-    if check and status != 0:
-        message = f"Command exited with non-zero status: {status}"
-        raise ChildProcessError(message)
-
-    return ResultTuple(output, status_list if command_was_pipeline else status)
+    return ResultTuple(output, status_list)

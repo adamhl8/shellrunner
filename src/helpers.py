@@ -4,7 +4,7 @@ from shutil import which
 from typing import NamedTuple, TypeVar
 
 
-class PipelineError(ChildProcessError):
+class ShellCommandError(ChildProcessError):
     pass
 
 
@@ -14,7 +14,7 @@ class EnvironmentVariableError(ValueError):
 
 class ResultTuple(NamedTuple):
     out: str
-    status: int | list[int]
+    status: list[int]
 
 
 # Returns the full path of parent process/shell. That way commands are executed using the same shell that invoked this script.
