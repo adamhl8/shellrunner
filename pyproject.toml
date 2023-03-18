@@ -19,7 +19,7 @@ classifiers = [
     "Topic :: System :: Shells",
     "Topic :: System :: System Shells",
 ]
-keywords = ["shell", "bash", "zsh", "fish"]
+keywords = ["shell", "scripting", "bash", "zsh", "fish"]
 
 [project.urls]
 "Homepage" = "https://github.com/adamhl8/python-shellrunner"
