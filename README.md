@@ -1,6 +1,16 @@
-# python-shellrunner
+# python-shellrunner <!-- omit from toc -->
 
-Write safe shell scripts in python.
+Write safe shell scripts in Python. Combine the streamlined utility of a shell with the power of a modern programming language.
+
+- [Install](#install)
+- [Usage](#usage)
+- [Why?](#why)
+  - [Similar Projects](#similar-projects)
+- [Advanced Usage](#advanced-usage)
+  - [Multiple Commands](#multiple-commands)
+- [Options](#options)
+  - [Output](#output)
+- [Examples](#examples)
 
 ## Install
 
@@ -64,8 +74,12 @@ Also, users of [fish](https://github.com/fish-shell/fish-shell) might know that 
 
 ### Similar Projects
 
-zx
-zx-py
+- [zx](https://github.com/google/zx)
+- [zxpy](https://github.com/tusharsadhwani/zxpy)
+- [shellpy](https://github.com/lamerman/shellpy)
+- [plumbum](https://github.com/tomerfiliba/plumbum)
+
+ShellRunner is very similar to zxpy but aims to be more simple in its implementation and has a focus on adding safety to scripts.
 
 ## Advanced Usage
 
