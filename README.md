@@ -1,14 +1,12 @@
 <div align="center">
   <img width="250" src="https://user-images.githubusercontent.com/1844269/226196799-402898d6-c363-4735-be23-57c0ba9e1035.png">
-  <br>
-  <br>
 </div>
-
-<div align="center">
-  <span>Write safe shell scripts in Python.</span>
+<br>
+<p align="center">
+  Write safe shell scripts in Python.
   <br>
-  <span>Combine the streamlined utility of a shell with the power of a modern programming language.</span>
-</div>
+  Combine the streamlined utility of a shell with the power of a modern programming language.
+</p>
 
 - [Install](#install)
 - [Usage](#usage)
