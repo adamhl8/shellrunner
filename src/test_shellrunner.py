@@ -51,7 +51,7 @@ for shell in shells:
 class TestCommands:
     def test_single_command(self, shell: str):
         result = X("echo test", shell=shell)
-        assert result.out == "test\n"
+        assert result.out == "test"
         assert result.status == [0]
 
     def test_single_command_error(self, shell: str, shell_command_error_message: str):
@@ -66,7 +66,7 @@ class TestCommands:
 
     def test_pipeline(self, shell: str):
         result = X("echo test | grep test", shell=shell)
-        assert result.out == "test\n"
+        assert result.out == "test"
         if shell == "sh":
             assert result.status == [0]
         else:
@@ -94,12 +94,12 @@ class TestCommands:
 
     def test_command_list(self, shell: str):
         result = X(["echo test", "echo test"], shell=shell)
-        assert result.out == "test\ntest\n"
+        assert result.out == "test\ntest"
         assert result.status == [0]
 
     def test_command_list_status_is_last_command(self, shell: str):
         result = X(["echo test | grep test", "echo test"], shell=shell)
-        assert result.out == "test\ntest\n"
+        assert result.out == "test\ntest"
         assert result.status == [0]
 
     def test_command_list_error(self, shell: str, shell_command_error_message: str):
@@ -109,7 +109,7 @@ class TestCommands:
 
     def test_command_list_maintains_environment(self, shell: str):
         result = X(["cd /", "pwd"], shell=shell)
-        assert result.out == "/\n"
+        assert result.out == "/"
         assert result.status == [0]
 
 
@@ -132,26 +132,26 @@ class TestOptions:
 
     def test_check_false_does_not_stop_execution(self, shell: str):
         result = X(["false", "echo test"], shell=shell, check=False)
-        assert result.out == "test\n"
+        assert result.out == "test"
         assert result.status == [0]
 
     def test_show_output_false(self, shell: str, capsys: pytest.CaptureFixture[str]):
         result = X("echo test", shell=shell, show_output=False)
-        assert result.out == "test\n"
+        assert result.out == "test"
         assert result.status == [0]
         captured = capsys.readouterr()
         assert captured.out == "Executing: echo test\n"
 
     def test_show_commands_false(self, shell: str, capsys: pytest.CaptureFixture[str]):
         result = X("echo test", shell=shell, show_commands=False)
-        assert result.out == "test\n"
+        assert result.out == "test"
         assert result.status == [0]
         captured = capsys.readouterr()
         assert captured.out == "test\n"
 
     def test_show_output_false_show_commands_false(self, shell: str, capsys: pytest.CaptureFixture[str]):
         result = X("echo test", shell=shell, show_output=False, show_commands=False)
-        assert result.out == "test\n"
+        assert result.out == "test"
         assert result.status == [0]
         captured = capsys.readouterr()
         assert captured.out == ""
@@ -174,7 +174,7 @@ class TestOptions:
             assert result.status == [0, 1, 1]
 
         result = X("echo test", shell=shell)
-        assert result.out == "test\n"
+        assert result.out == "test"
         assert result.status == [0]
         captured = capsys.readouterr()
         assert captured.out == ""
@@ -195,7 +195,7 @@ class TestOptions:
         assert str(cm.value).startswith(shell_command_error_message)
 
         result = X("echo test", shell=shell, show_commands=True, show_output=True)
-        assert result.out == "test\n"
+        assert result.out == "test"
         assert result.status == [0]
         captured = capsys.readouterr()
         assert captured.out == "Executing: echo test\ntest\n"
@@ -218,12 +218,12 @@ class TestOptions:
 class TestShellResolution:
     def test_resolve_shell_from_path(self, parent_shell: ShellInfo):
         result = X("echo test", shell=parent_shell.path)
-        assert result.out == "test\n"
+        assert result.out == "test"
         assert result.status == [0]
 
     def test_resolve_shell_from_name(self, parent_shell: ShellInfo):
         result = X("echo test", shell=parent_shell.name)
-        assert result.out == "test\n"
+        assert result.out == "test"
         assert result.status == [0]
 
     def test_invalid_shell_path_raises_error(self):
@@ -255,7 +255,7 @@ class TestShellResolution:
     ):
         monkeypatch.setenv("SHELLRUNNER_SHELL", parent_shell.path)
         result = X("echo test")
-        assert result.out == "test\n"
+        assert result.out == "test"
         assert result.status == [0]
 
     def test_resolve_shell_name_from_environment_variable(
@@ -265,7 +265,7 @@ class TestShellResolution:
     ):
         monkeypatch.setenv("SHELLRUNNER_SHELL", parent_shell.name)
         result = X("echo test")
-        assert result.out == "test\n"
+        assert result.out == "test"
         assert result.status == [0]
 
     def test_invalid_shell_path_in_environment_variable_raises_error(self, monkeypatch: pytest.MonkeyPatch):
@@ -286,5 +286,5 @@ class TestShellResolution:
     ):
         monkeypatch.setenv("SHELLRUNNER_SHELL", "invalidshell")
         result = X("echo test", shell=parent_shell.path)
-        assert result.out == "test\n"
+        assert result.out == "test"
         assert result.status == [0]
