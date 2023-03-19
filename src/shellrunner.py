@@ -1,6 +1,6 @@
-import inspect
 import subprocess
 import sys
+from inspect import cleandoc
 
 from helpers import Env, ResultTuple, ShellCommandError, get_parent_shell_path, resolve_option, resolve_shell_path
 
@@ -65,7 +65,7 @@ def X(  # noqa: N802
     # If we used the actual characters in that case, we would fail to correctly capture pipestatus because we would be capturing the literal command sent to the shell, not pipestatus as printed from the code.
 
     # Remove unnecessary whitespace.
-    status_check = inspect.cleandoc(status_check)
+    status_check = cleandoc(status_check)
 
     # Default to sh. "Pure" POSIX shells do not have $PIPESTATUS so only the exit status of the last command in a pipeline is available.
     pipestatus_var = r"$?"
@@ -144,7 +144,8 @@ def X(  # noqa: N802
     if check:
         for status in status_list:
             if status != 0:
-                message = f"Command exited with non-zero status: {status}"
+                # TODO: attach the result to the exception
+                message = f"Command exited with non-zero status: {status_list}"
                 raise ShellCommandError(message)
 
     return ResultTuple(output, status_list)

@@ -1,6 +1,6 @@
 [project]
 name = "python-shellrunner"
-version = "0.1.0"
+version = "0.1.1"
 description = "Write safe shell scripts in Python."
 authors = [
     {name = "adamhl8", email = "adamhl@pm.me"},
@@ -48,7 +48,7 @@ pythonpath = ["src"]
 
 [tool.pyright]
 typeCheckingMode = "strict"
-extraPaths = ["__pypackages__/3.10/lib"]
+extraPaths = ["__pypackages__/3.10/lib", "src"]
 
 [tool.ruff]
 line-length = 120
