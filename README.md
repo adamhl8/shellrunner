@@ -8,6 +8,8 @@
   Combine the streamlined utility of a shell with the power of a modern programming language.
 </p>
 
+---
+
 - [Install](#install)
 - [Usage](#usage)
 - [Why?](#why)
