@@ -148,4 +148,4 @@ def X(  # noqa: N802
                 message = f"Command exited with non-zero status: {status_list}"
                 raise ShellCommandError(message)
 
-    return ResultTuple(output, status_list)
+    return ResultTuple(output.rstrip(), status_list)
