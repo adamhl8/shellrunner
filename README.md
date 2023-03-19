@@ -1,6 +1,10 @@
-# python-shellrunner <!-- omit from toc -->
+<p align="center">
+  <img width="250" src="https://user-images.githubusercontent.com/1844269/226196799-402898d6-c363-4735-be23-57c0ba9e1035.png">
+</p>
 
-Write safe shell scripts in Python. Combine the streamlined utility of a shell with the power of a modern programming language.
+<p align="center">
+  Write safe shell scripts in Python. Combine the streamlined utility of a shell with the power of a modern programming language.
+</p>
 
 - [Install](#install)
 - [Usage](#usage)
