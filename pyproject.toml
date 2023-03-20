@@ -1,6 +1,6 @@
 [project]
 name = "python-shellrunner"
-version = "0.2.0"
+version = "0.3.0"
 description = "Write safe shell scripts in Python."
 authors = [
     {name = "adamhl8", email = "adamhl@pm.me"},
@@ -29,7 +29,7 @@ keywords = ["shell", "scripting", "bash", "zsh", "fish"]
 [tool.pdm.dev-dependencies]
 dev = [
     "black>=23.1.0",
-    "ruff>=0.0.254",
+    "ruff>=0.0.257",
     "pytest>=7.2.2",
     "types-psutil>=5.9.5.10",
     "pyroma>=4.2",

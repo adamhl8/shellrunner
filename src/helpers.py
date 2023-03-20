@@ -6,27 +6,38 @@ from typing import NamedTuple, TypeVar
 
 class ShellCommandResult(NamedTuple):
     out: str
-    status: list[int]
+    status: int
+    pipestatus: list[int]
 
 
-class ShellCommandError(ChildProcessError):
+class ShellRunnerError(RuntimeError):
+    pass
+
+
+class ShellCommandError(ShellRunnerError):
     def __init__(self, message: str, result: ShellCommandResult):
         super().__init__(message)
         self.out = result.out
         self.status = result.status
+        self.pipestatus = result.pipestatus
 
 
-class EnvironmentVariableError(ValueError):
+class ShellResolutionError(ShellRunnerError):
+    pass
+
+
+class EnvironmentVariableError(ShellRunnerError):
     pass
 
 
 # Returns the full path of parent process/shell. That way commands are executed using the same shell that invoked this script.
+# TODO test if executable is a shell, if not default to bash
 def get_parent_shell_path() -> Path:
     try:
         return Path(f"/proc/{os.getppid()}/exe").readlink().resolve(strict=True)
-    except:
-        print("An error occured when trying to get the path of the parent shell:")
-        raise
+    except Exception as e:  # noqa: BLE001
+        message = "An error occured when trying to get the path of the parent shell."
+        raise ShellResolutionError(message) from e
 
 
 # Returns the full path of a given path or executable name. e.g. "/bin/bash" or "bash"
@@ -34,7 +45,7 @@ def resolve_shell_path(shell: str) -> Path:
     which_shell = which(shell, os.X_OK)
     if which_shell is None:
         message = f'Unable to resolve the path to the executable: "{shell}". It is either not on your PATH or the specified file is not executable.'
-        raise FileNotFoundError(message)
+        raise ShellResolutionError(message)
     return Path(which_shell).resolve(strict=True)
 
 

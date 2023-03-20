@@ -5,7 +5,7 @@ from shutil import which
 from typing import NamedTuple
 
 import pytest
-from helpers import EnvironmentVariableError, ShellCommandError, get_parent_shell_path
+from helpers import EnvironmentVariableError, ShellCommandError, ShellResolutionError, get_parent_shell_path
 from shellrunner import X
 
 
@@ -46,79 +46,118 @@ for shell in shells:
         message = f'Unable to resolve the path to the executable: "{shell}". It is either not on your PATH or the specified file is not executable.'
         raise FileNotFoundError(message)
 
+# ruff: noqa: PLR2004
 
-# When using sh (or any other shell without $PIPESTATUS), we will only ever receive a single exit status.
+
+# When using sh (or any other shell without PIPESTATUS), we will only ever receive a single exit status.
 @pytest.mark.parametrize("shell", shells)
 class TestCommands:
     def test_single_command(self, shell: str):
         result = X("echo test", shell=shell)
         assert result.out == "test"
-        assert result.status == [0]
+        assert result.status == 0
+        assert result.pipestatus == [0]
 
     def test_single_command_error(self, shell: str, shell_command_error_message: str):
         with pytest.raises(ShellCommandError) as cm:
             X("false", shell=shell)
         assert str(cm.value).startswith(shell_command_error_message)
+        assert cm.value.out == ""
+        assert cm.value.status == 1
+        assert cm.value.pipestatus == [1]
 
     def test_unknown_command_raises_error(self, shell: str, shell_command_error_message: str):
         with pytest.raises(ShellCommandError) as cm:
             X("foo", shell=shell)
         assert str(cm.value).startswith(shell_command_error_message)
+        assert cm.value.status == 127
+        assert cm.value.pipestatus == [127]
 
     def test_pipeline(self, shell: str):
         result = X("echo test | grep test", shell=shell)
         assert result.out == "test"
+        assert result.status == 0
         if shell == "sh":
-            assert result.status == [0]
+            assert result.pipestatus == [0]
         else:
-            assert result.status == [0, 0]
+            assert result.pipestatus == [0, 0]
 
     def test_pipeline_error(self, shell: str, shell_command_error_message: str):
-        # sh does not have $PIPESTATUS so we shouldn't get an error if the non-zero exit was not the last command.
+        # sh does not have PIPESTATUS so we shouldn't get an error if the non-zero exit was not the last command.
         if shell == "sh":
-            result = X("true | false | true", shell=shell)
-            assert result.out == ""
-            assert result.status == [0]
+            result = X("false | echo test", shell=shell)
+            assert result.out == "test"
+            assert result.status == 0
+            assert result.pipestatus == [0]
         else:
             with pytest.raises(ShellCommandError) as cm:
-                X("true | false | true", shell=shell)
+                X("false | echo test", shell=shell)
             assert str(cm.value).startswith(shell_command_error_message)
+            assert cm.value.out == "test"
+            assert cm.value.status == 1
+            assert cm.value.pipestatus == [1, 0]
 
+        # Test when only last command fails.
         with pytest.raises(ShellCommandError) as cm:
-            X("true | true | false", shell=shell)
+            X("true | false", shell=shell)
         assert str(cm.value).startswith(shell_command_error_message)
+        assert cm.value.out == ""
+        assert cm.value.status == 1
+        if shell == "sh":
+            assert cm.value.pipestatus == [1]
+        else:
+            assert cm.value.pipestatus == [0, 1]
+
+    def test_status_equals_status_of_last_failing_command(self, shell: str, shell_command_error_message: str):
+        if shell == "sh":
+            result = X("bash -c 'exit 1' | bash -c 'exit 2' | echo test", shell=shell)
+            assert result.out == "test"
+            assert result.status == 0
+            assert result.pipestatus == [0]
+        else:
+            with pytest.raises(ShellCommandError) as cm:
+                X("bash -c 'exit 1' | bash -c 'exit 2' | echo test", shell=shell)
+            assert str(cm.value).startswith(shell_command_error_message)
+            assert cm.value.out == "test"
+            assert cm.value.status == 2
+            assert cm.value.pipestatus == [1, 2, 0]
 
     def test_pipeline_with_unknown_command_raises_error(self, shell: str, shell_command_error_message: str):
         with pytest.raises(ShellCommandError) as cm:
             X("true | foo", shell=shell)
         assert str(cm.value).startswith(shell_command_error_message)
-
-    def test_shellcommanderror_has_result(self, shell: str, shell_command_error_message: str):
-        with pytest.raises(ShellCommandError) as cm:
-            X("echo test && false", shell=shell)
-        assert str(cm.value).startswith(shell_command_error_message)
-        assert cm.value.out == "test"
-        assert cm.value.status == [1]
+        assert cm.value.status == 127
+        # fish will not run a pipeline whatsoever if any command is unknown so we will only ever get one status.
+        if shell == "sh" or shell == "fish":
+            assert cm.value.pipestatus == [127]
+        else:
+            assert cm.value.pipestatus == [0, 127]
 
     def test_command_list(self, shell: str):
         result = X(["echo test", "echo test"], shell=shell)
         assert result.out == "test\ntest"
-        assert result.status == [0]
+        assert result.status == 0
+        assert result.pipestatus == [0]
 
-    def test_command_list_status_is_last_command(self, shell: str):
+    def test_command_list_status_is_of_last_command(self, shell: str):
         result = X(["echo test | grep test", "echo test"], shell=shell)
         assert result.out == "test\ntest"
-        assert result.status == [0]
+        assert result.status == 0
+        assert result.pipestatus == [0]
 
     def test_command_list_error(self, shell: str, shell_command_error_message: str):
         with pytest.raises(ShellCommandError) as cm:
             X(["echo test", "false"], shell=shell)
         assert str(cm.value).startswith(shell_command_error_message)
+        assert cm.value.out == "test"
+        assert cm.value.status == 1
+        assert cm.value.pipestatus == [1]
 
     def test_command_list_maintains_environment(self, shell: str):
         result = X(["cd /", "pwd"], shell=shell)
         assert result.out == "/"
-        assert result.status == [0]
+        assert result.status == 0
+        assert result.pipestatus == [0]
 
 
 @pytest.mark.parametrize("shell", shells)
@@ -128,39 +167,45 @@ class TestOptions:
     def test_check_false_does_not_raise_error(self, shell: str):
         result = X("false", shell=shell, check=False)
         assert result.out == ""
-        assert result.status == [1]
+        assert result.status == 1
+        assert result.pipestatus == [1]
 
     def test_check_false_with_pipeline_does_not_raise_error(self, shell: str):
-        result = X("true | false | false", shell=shell, check=False)
+        result = X("false | false", shell=shell, check=False)
         assert result.out == ""
+        assert result.status == 1
         if shell == "sh":
-            assert result.status == [1]
+            assert result.pipestatus == [1]
         else:
-            assert result.status == [0, 1, 1]
+            assert result.pipestatus == [1, 1]
 
     def test_check_false_does_not_stop_execution(self, shell: str):
         result = X(["false", "echo test"], shell=shell, check=False)
         assert result.out == "test"
-        assert result.status == [0]
+        assert result.status == 0
+        assert result.pipestatus == [0]
 
     def test_show_output_false(self, shell: str, capsys: pytest.CaptureFixture[str]):
         result = X("echo test", shell=shell, show_output=False)
         assert result.out == "test"
-        assert result.status == [0]
+        assert result.status == 0
+        assert result.pipestatus == [0]
         captured = capsys.readouterr()
         assert captured.out == "Executing: echo test\n"
 
     def test_show_commands_false(self, shell: str, capsys: pytest.CaptureFixture[str]):
         result = X("echo test", shell=shell, show_commands=False)
         assert result.out == "test"
-        assert result.status == [0]
+        assert result.status == 0
+        assert result.pipestatus == [0]
         captured = capsys.readouterr()
         assert captured.out == "test\n"
 
     def test_show_output_false_show_commands_false(self, shell: str, capsys: pytest.CaptureFixture[str]):
         result = X("echo test", shell=shell, show_output=False, show_commands=False)
         assert result.out == "test"
-        assert result.status == [0]
+        assert result.status == 0
+        assert result.pipestatus == [0]
         captured = capsys.readouterr()
         assert captured.out == ""
 
@@ -176,14 +221,16 @@ class TestOptions:
 
         result = X("true | false | false", shell=shell)
         assert result.out == ""
+        assert result.status == 1
         if shell == "sh":
-            assert result.status == [1]
+            assert result.pipestatus == [1]
         else:
-            assert result.status == [0, 1, 1]
+            assert result.pipestatus == [0, 1, 1]
 
         result = X("echo test", shell=shell)
         assert result.out == "test"
-        assert result.status == [0]
+        assert result.status == 0
+        assert result.pipestatus == [0]
         captured = capsys.readouterr()
         assert captured.out == ""
 
@@ -201,10 +248,14 @@ class TestOptions:
         with pytest.raises(ShellCommandError) as cm:
             X("false", shell=shell, check=True)
         assert str(cm.value).startswith(shell_command_error_message)
+        assert cm.value.out == ""
+        assert cm.value.status == 1
+        assert cm.value.pipestatus == [1]
 
         result = X("echo test", shell=shell, show_commands=True, show_output=True)
         assert result.out == "test"
-        assert result.status == [0]
+        assert result.status == 0
+        assert result.pipestatus == [0]
         captured = capsys.readouterr()
         assert captured.out == "Executing: echo test\ntest\n"
 
@@ -227,24 +278,26 @@ class TestShellResolution:
     def test_resolve_shell_from_path(self, parent_shell: ShellInfo):
         result = X("echo test", shell=parent_shell.path)
         assert result.out == "test"
-        assert result.status == [0]
+        assert result.status == 0
+        assert result.pipestatus == [0]
 
     def test_resolve_shell_from_name(self, parent_shell: ShellInfo):
         result = X("echo test", shell=parent_shell.name)
         assert result.out == "test"
-        assert result.status == [0]
+        assert result.status == 0
+        assert result.pipestatus == [0]
 
     def test_invalid_shell_path_raises_error(self):
-        with pytest.raises(FileNotFoundError):
+        with pytest.raises(ShellResolutionError):
             X("echo test", shell="/invalid/shell/path")
 
     def test_invalid_shell_name_raises_error(self):
-        with pytest.raises(FileNotFoundError) as cm:
+        with pytest.raises(ShellResolutionError) as cm:
             X("echo test", shell="invalidshell")
         assert str(cm.value).startswith('Unable to resolve the path to the executable: "invalidshell".')
 
     def test_python_as_parent_process_raises_error(self):
-        with pytest.raises(ProcessLookupError) as cm:
+        with pytest.raises(ShellResolutionError) as cm:
             X("echo test", shell="python")
         assert re.fullmatch("Process .+ is not a shell. Please provide a shell name or path.", str(cm.value))
 
@@ -252,7 +305,7 @@ class TestShellResolution:
         file = tmp_path / "non_exectuable"
         file.write_text("temp")
         Path.chmod(file, 0o444)
-        with pytest.raises(FileNotFoundError) as cm:
+        with pytest.raises(ShellResolutionError) as cm:
             X("echo test", shell=f"{file}")
         assert str(cm.value).startswith(f'Unable to resolve the path to the executable: "{file}".')
 
@@ -264,7 +317,8 @@ class TestShellResolution:
         monkeypatch.setenv("SHELLRUNNER_SHELL", parent_shell.path)
         result = X("echo test")
         assert result.out == "test"
-        assert result.status == [0]
+        assert result.status == 0
+        assert result.pipestatus == [0]
 
     def test_resolve_shell_name_from_environment_variable(
         self,
@@ -274,16 +328,17 @@ class TestShellResolution:
         monkeypatch.setenv("SHELLRUNNER_SHELL", parent_shell.name)
         result = X("echo test")
         assert result.out == "test"
-        assert result.status == [0]
+        assert result.status == 0
+        assert result.pipestatus == [0]
 
     def test_invalid_shell_path_in_environment_variable_raises_error(self, monkeypatch: pytest.MonkeyPatch):
         monkeypatch.setenv("SHELLRUNNER_SHELL", "/invalid/shell/path")
-        with pytest.raises(FileNotFoundError):
+        with pytest.raises(ShellResolutionError):
             X("echo test")
 
     def test_invalid_shell_name_in_environment_variable_raises_error(self, monkeypatch: pytest.MonkeyPatch):
         monkeypatch.setenv("SHELLRUNNER_SHELL", "invalidshell")
-        with pytest.raises(FileNotFoundError) as cm:
+        with pytest.raises(ShellResolutionError) as cm:
             X("echo test")
         assert str(cm.value).startswith('Unable to resolve the path to the executable: "invalidshell".')
 
@@ -295,4 +350,5 @@ class TestShellResolution:
         monkeypatch.setenv("SHELLRUNNER_SHELL", "invalidshell")
         result = X("echo test", shell=parent_shell.path)
         assert result.out == "test"
-        assert result.status == [0]
+        assert result.status == 0
+        assert result.pipestatus == [0]

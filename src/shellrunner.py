@@ -6,6 +6,8 @@ from helpers import (
     Env,
     ShellCommandError,
     ShellCommandResult,
+    ShellResolutionError,
+    ShellRunnerError,
     get_parent_shell_path,
     resolve_option,
     resolve_shell_path,
@@ -40,7 +42,7 @@ def X(  # noqa: N802
     # If for some reason python is the parent process (or if the user passes in python) we can't continue.
     if shell_name.startswith("python"):
         message = f'Process "{shell_name}" is not a shell. Please provide a shell name or path.'
-        raise ProcessLookupError(message)
+        raise ShellResolutionError(message)
 
     check = resolve_option(check, Env.get_bool("SHELLRUNNER_CHECK"), default=True)
     show_output = resolve_option(show_output, Env.get_bool("SHELLRUNNER_SHOW_OUTPUT"), default=True)
@@ -52,11 +54,11 @@ def X(  # noqa: N802
     command_list = command  # Rename
 
     # The only way to reliably stop executing commands on an error is to exit from the shell itself. Killing the subprocess does not happen nearly fast enough.
-    # To do this, we append a command for each command that is passed in. Ultimately, we need to get $PIPESTATUS, process it, and exit based on that. $PIPESTATUS looks like: "0 1 0".
-    # We don't need to also get $?/$status because $PIPESTATUS gives the status of single command anyway.
-    # Rather than write a separate script for each shell to process $PIPESTATUS (e.g. bash would requier a different script than fish), we can pass $PIPESTATUS into a python script.
+    # To do this, we append a command for each command that is passed in. Ultimately, we need to get PIPESTATUS, process it, and exit based on that. PIPESTATUS looks like: "0 1 0".
+    # We don't need to also get $?/$status because PIPESTATUS gives the status of single command anyway.
+    # Rather than write a separate script for each shell to process PIPESTATUS (e.g. bash would requier a different script than fish), we can pass PIPESTATUS into a python script.
     # We execute this python script by passing it to the parent python executable (sys.executable) via the -c flag.
-    # The following python code (status_check) takes in $PIPESTATUS, prints it (so we can capture it from stdout later on), loops through each status, and exits (with a non-zero status if there is one).
+    # The following python code (status_check) takes in PIPESTATUS, prints it (so we can capture it from stdout later on), loops through each status, and exits (with a non-zero status if there is one).
     status_check = r"""
         import sys
         pipestatus = sys.argv[1]
@@ -64,7 +66,7 @@ def X(  # noqa: N802
         for status in [int(x) for x in pipestatus.split()]:
             if status != 0: sys.exit(status)
     """
-    # We use "⽌" and "⾏" as markers (that we'll likely never come across in the wild) to detect when a given command has finished. That way we can separately capture $PIPESTATUS from stdout (and not print it).
+    # We use "⽌" and "⾏" as markers (that we'll likely never come across in the wild) to detect when a given command has finished. That way we can separately capture PIPESTATUS from stdout (and not print it).
     # The markers are Japanese radicals rather than full Kanji, so they do not appear in "normal" Japanese text. e.g. we use ⾏ (U+2F8F) instead of 行 (U+884C).
     # We read stdout on each character rather than by line, so we have to detect on a single character. See the subprocess while loop.
     # In the above print statement, we use unicode escapes to "hide" the characters from the shell and only convert them back when the code is actually executed. '\u2f4c' == ⽌ | '\u2f8f' == ⾏
@@ -74,16 +76,17 @@ def X(  # noqa: N802
     # Remove unnecessary whitespace.
     status_check = cleandoc(status_check)
 
-    # Default to sh. "Pure" POSIX shells do not have $PIPESTATUS so only the exit status of the last command in a pipeline is available.
-    pipestatus_var = r"$?"
+    # Default to sh. "Pure" POSIX shells do not have PIPESTATUS so only the exit status of the last command in a pipeline is available.
     status_var = r"$?"
+    pipestatus_var = status_var
     if shell_name == "bash":
         pipestatus_var = r"${PIPESTATUS[*]}"
     if shell_name == "zsh" or shell_name == "fish":
-        pipestatus_var = r"$pipestatus"
         status_var = r"$status"
+        pipestatus_var = r"$pipestatus"
 
     # If check argument is false, we won't exit after a non-zero exit status.
+    # When run in shell that masks pipeline errors (e.g. bash), status_var will be 0 even though an error may have occured in a pipeline. Ultimately this doesn't matter because we don't care about the exit status of the shell itself.
     exit_command = f' || exit "{status_var}"' if check else ""
 
     # This command is appended after each passed in command. If status_check exits with a non-zero status, we exit the shell.
@@ -100,7 +103,7 @@ def X(  # noqa: N802
 
     output = ""
     pipestatus = ""
-    status_list = []
+    pipestatus_list = []
 
     # Print command_list rather than commands so we don't see the appended status_checks.
     if show_commands:
@@ -117,13 +120,13 @@ def X(  # noqa: N802
     ) as process:
         if process.stdout is None:
             message = "process.stdout is None"
-            raise RuntimeError(message)
+            raise ShellRunnerError(message)
 
         capture_output = True
         # If we are still receving output or poll() is None, we know the command is still running.
         # We must use stdout.read(1) rather than readline() in order to properly print commands that prompt the user for input. We must also forcibly flush the stream in the print statement for the same reason.
         while (out := process.stdout.read(1)) or process.poll() is None:
-            # If we detect our marker, we know we are done with the previous command and have printed $PIPESTATUS. Capture stdout to pipestatus instead.
+            # If we detect our marker, we know we are done with the previous command and have printed PIPESTATUS. Capture stdout to pipestatus instead.
             if out.startswith("⽌"):
                 capture_output = False
             if capture_output and out:
@@ -135,25 +138,32 @@ def X(  # noqa: N802
             else:
                 pipestatus += out
 
-            # If we detect our marker, we know we have finished capturing $PIPESTATUS and can start printing output again.
+            # If we detect our marker, we know we have finished capturing PIPESTATUS and can start printing output again.
             if out.startswith("⾏"):
                 if pipestatus:
                     pipestatus = pipestatus.split(" : ")[1]
                     # Convert pipestatus to a list of ints: '0 1 0' -> [0, 1, 0]
-                    status_list = [int(x) for x in pipestatus.split()]
+                    pipestatus_list = [int(x) for x in pipestatus.split()]
                 capture_output = True
 
     # If we don't recieve any exit status, something went wrong.
-    if not status_list:
+    if not pipestatus_list:
         message = "Something went wrong. Failed to capture an exit status."
-        raise RuntimeError(message)
+        raise ShellRunnerError(message)
 
-    result = ShellCommandResult(output.rstrip(), status_list)
+    status = pipestatus_list[-1]
+    # status is equal to the last failed command in a pipeline.
+    for s in reversed(pipestatus_list):
+        if s != 0:
+            status = s
+            break
+
+    result = ShellCommandResult(output.rstrip(), status, pipestatus_list)
 
     if check:
-        for status in status_list:
+        for status in pipestatus_list:
             if status != 0:
-                message = f"Command exited with non-zero status: {status_list}"
+                message = f"Command exited with non-zero status: {pipestatus_list}"
                 raise ShellCommandError(message, result)
 
     return result

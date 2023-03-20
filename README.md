@@ -88,12 +88,11 @@ Also, users of [fish](https://github.com/fish-shell/fish-shell) might know that 
 
 ### Similar Projects
 
-- [zx](https://github.com/google/zx)
 - [zxpy](https://github.com/tusharsadhwani/zxpy)
 - [shellpy](https://github.com/lamerman/shellpy)
 - [plumbum](https://github.com/tomerfiliba/plumbum)
 
-ShellRunner is very similar to zxpy but aims to be more simple in its implementation and has a focus on adding safety to scripts.
+ShellRunner is very similar to zxpy and shellpy but aims to be more simple in its implementation and has a focus on adding safety to scripts.
 
 ## Advanced Usage
 
@@ -111,30 +110,35 @@ X("echo hello | string match hello")
 
 ### Shell Command Result
 
-`X` returns a `ShellCommandResult` (`NamedTuple`) containing the output of the command and a list of its exit status(es), accessed via `.out` and `.status` respectively.
+`X` returns a `ShellCommandResult` (`NamedTuple`) containing the following:
+
+- `out: str`: The `stdout` and `stderr` of the command.
+- `status: int`: The overall exit status of the command. If the command was a pipeline that failed, `status` will be equal to the status of the last failing command (like bash's `pipefail`).
+- `pipestatus: list[int]`: A list of statuses for each command in the pipeline.
 
 ```python
 result = X("echo hello")
-print(f'Got output "{result.out}" with exit status {result.status}')
+print(f'Got output "{result.out}" with exit status {result.status} / {result.pipestatus}')
 # Or unpack
-output, status = X("echo hello")
+output, status, pipestatus = X("echo hello")
 # output = "hello"
-# status = [0]
+# status = 0
+# pipestatus = [0]
 ```
 
-`status` will contain the exit status of every command in a pipeline:
-
 ```python
-statuses = X("echo hello | grep hello").status
-# statuses = [0, 0]
+result = X("(exit 1) | (exit 2) | echo hello")
+# result.out = "hello"
+# result.status = 2
+# result.pipestatus = [1, 2, 0]
 ```
 
 If using a shell that does not support `PIPESTATUS` such as `sh`, you will only ever get the status of the last command in a pipeline. **This also means that in this case ShellRunner cannot detect if an error occured in a pipeline:**
 
 ```python
-status = X("grep hello /non/existent/file | tee new_file").status
-# if invoked with e.g. bash: ShellCommandError is raised
-# if invoked with sh: No exception is raised and status = [0]
+result = X("(exit 1) | echo hello")
+# if invoked with bash: ShellCommandError is raised, status = 1, pipestatus = [1, 0]
+# if invoked with sh: No exception is raised, status = 0, pipestatus = [0]
 ```
 
 ### Exception Handling
