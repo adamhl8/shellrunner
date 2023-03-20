@@ -59,6 +59,8 @@ my_text_processor(text)
 Or, maybe you want to handle the error:
 
 ```python
+from shellrunner import X, ShellCommandError
+
 text = ""
 try:
     text = X("grep hello /non/existent/file").out
