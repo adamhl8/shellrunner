@@ -4,17 +4,20 @@ from shutil import which
 from typing import NamedTuple, TypeVar
 
 
+class ShellCommandResult(NamedTuple):
+    out: str
+    status: list[int]
+
+
 class ShellCommandError(ChildProcessError):
-    pass
+    def __init__(self, message: str, result: ShellCommandResult):
+        super().__init__(message)
+        self.out = result.out
+        self.status = result.status
 
 
 class EnvironmentVariableError(ValueError):
     pass
-
-
-class ResultTuple(NamedTuple):
-    out: str
-    status: list[int]
 
 
 # Returns the full path of parent process/shell. That way commands are executed using the same shell that invoked this script.

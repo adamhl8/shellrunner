@@ -2,7 +2,14 @@ import subprocess
 import sys
 from inspect import cleandoc
 
-from helpers import Env, ResultTuple, ShellCommandError, get_parent_shell_path, resolve_option, resolve_shell_path
+from helpers import (
+    Env,
+    ShellCommandError,
+    ShellCommandResult,
+    get_parent_shell_path,
+    resolve_option,
+    resolve_shell_path,
+)
 
 # We only need to do this once (on import) since it should never change between calls of X.
 parent_shell_path = get_parent_shell_path()
@@ -23,7 +30,7 @@ def X(  # noqa: N802
     check: bool | None = None,
     show_output: bool | None = None,
     show_commands: bool | None = None,
-) -> ResultTuple:
+) -> ShellCommandResult:
     # We default each argument to None rather than the "real" defaults so we can detect if the user actually passed something in.
     # Passed in arguments take precedence over the related environment variable.
     shell = resolve_option(shell, Env.get_str("SHELLRUNNER_SHELL"), default="")
@@ -141,11 +148,12 @@ def X(  # noqa: N802
         message = "Something went wrong. Failed to capture an exit status."
         raise RuntimeError(message)
 
+    result = ShellCommandResult(output.rstrip(), status_list)
+
     if check:
         for status in status_list:
             if status != 0:
-                # TODO: attach the result to the exception
                 message = f"Command exited with non-zero status: {status_list}"
-                raise ShellCommandError(message)
+                raise ShellCommandError(message, result)
 
-    return ResultTuple(output.rstrip(), status_list)
+    return result

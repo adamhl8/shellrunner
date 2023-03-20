@@ -15,7 +15,9 @@
 - [Why?](#why)
   - [Similar Projects](#similar-projects)
 - [Advanced Usage](#advanced-usage)
-  - [Multiple Commands](#multiple-commands)
+  - [Shell Command Result](#shell-command-result)
+  - [Exception Handling](#exception-handling)
+  - [Multiple Commands / Persisting Environment](#multiple-commands--persisting-environment)
 - [Options](#options)
   - [Output](#output)
   - [Environment Variables](#environment-variables)
@@ -41,33 +43,34 @@ X("echo hello world")
 Easily get a command's output, do something with it, and run another command using the value:
 
 ```python
-result = X("echo hello world | sed 's/world/there/'").out
-greeting = result.capitalize()
+output = X("echo hello world | sed 's/world/there/'").out
+greeting = output.capitalize()
 X(f"echo 'echo {greeting}' >> .bashrc")
 ```
 
 An exception is raised if a command exits with a non-zero status (like bash's `set -e`):
 
 ```python
-X("curl https://invalid.url -o ~/super_important.tar.gz") # curl exits with exit status of 6
+text = X("grep hello /non/existent/file").out # grep exits with a non-zero status
 # ^ Raises ShellCommandError so the rest of the script doesn't run
-X("tar -vxzf ~/super_important.tar.gz")
+my_text_processor(text)
 ```
 
 Or, maybe you want to handle the error:
 
 ```python
+text = ""
 try:
-    X("curl https://invalid.url -o ~/super_important.tar.gz")
+    text = X("grep hello /non/existent/file").out
 except ShellCommandError:
-    X("curl https://definitely-valid.url -o ~/super_important.tar.gz")
-X("tar -vxzf ~/super_important.tar.gz")
+    text = X("grep hello /file/that/definitely/exists").out
+my_text_processor(text)
 ```
 
 Pipeline errors are not masked (like bash's `set -o pipefail`):
 
 ```python
-X("grep hello /non/existent/file | tee new_file")
+X("grep hello /non/existent/file | tee new_file") # tee gets nothing from grep, creates an empty file, and exits with status 0
 # ^ Raises ShellCommandError
 ```
 
@@ -96,7 +99,7 @@ A note on compatability: ShellRunner should work with on any POSIX-compliant sys
 
 Confirmed compatible with `sh` (dash), `bash`, `zsh`, and `fish`.
 
-Commands are automatically run with the shell that invoked your python script (this can be overridden):
+Commands are automatically run with the shell that invoked your python script (this can be [overridden](#options)):
 
 ```python
 # my_script.py
@@ -104,7 +107,9 @@ X("echo hello | string match hello")
 # Works if my_script.py is executed under fish. Will obviously fail if using bash.
 ```
 
-`X` returns a `NamedTuple` containing the output of the command and a list of its exit status(es), accessed via `.out` and `.status` respectively.
+### Shell Command Result
+
+`X` returns a `ShellCommandResult` (`NamedTuple`) containing the output of the command and a list of its exit status(es), accessed via `.out` and `.status` respectively.
 
 ```python
 result = X("echo hello")
@@ -130,44 +135,46 @@ status = X("grep hello /non/existent/file | tee new_file").status
 # if invoked with sh: No exception is raised and status = [0]
 ```
 
-### Multiple Commands
+### Exception Handling
+
+`ShellCommandError` also receives the information from the failed command, which means you can do something like this:
+
+```python
+try:
+    X("echo hello && false") # Pretend this is some command that prints something but exits with a non-zero status
+except ShellCommandError as e:
+    print(f'Command failed. Got output "{e.out}" with exit status {e.status}')
+```
+
+### Multiple Commands / Persisting Environment
+
+Each call of `X` invokes a new instance of the shell, so things like environment variables or directory changes don't persist.
 
 Sometimes you might want to do something like this:
 
 ```python
-# Pretend current working directory is ~/
-X("curl https://definitely-valid.url -o /tmp/super_important.tar.gz")
-X("cd /tmp/")
-X("tar -vxzf super_important.tar.gz")
-# ^ Raises exception because tar cannot find the file
+X("MY_VAR=hello")
+X("grep $MY_VAR /file/that/exists") # MY_VAR doesn't exist
+# ^ Raises ShellCommandError
 ```
-
-This fails because each call of `X` invokes a new instance of the shell, so things like `cd` don't persist.
 
 A (bad) solution would be to do this:
 
 ```python
-X("""
-curl https://definitely-valid.url -o /tmp/super_important.tar.gz
-cd /tmp/
-tar -vxzf super_important.tar.gz
-""")
+X("MY_VAR=hello; grep $MY_VAR /file/that/exists")
 ```
 
-However, this sort of defeats the purpose of ShellRunner because that would be run as one command, so no error handling can take place.
+This sort of defeats the purpose of ShellRunner because that would be run as one command, so no error handling can take place on commands before the last one.
 
-Instead, `X` also accepts a list of commands:
+Instead, `X` also accepts a list of commands where each command is run in the same shell instance and goes through the normal error handling:
 
 ```python
 X([
-"curl https://definitely-valid.url -o /tmp/super_important.tar.gz",
-"cd /tmp/",
-"tar -vxzf super_important.tar.gz"
+"MY_VAR=hello",
+"grep $MY_VAR /file/that/exists",
 ])
 # Works!
 ```
-
-Each command is run in the same shell instance and goes through the normal error checking.
 
 ## Options
 

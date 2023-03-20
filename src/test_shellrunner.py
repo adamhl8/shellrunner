@@ -24,7 +24,8 @@ def get_parent_shell_info():
     shell_path = get_parent_shell_path()
 
     # If pytest is invoked via pdm, the parent process will be python, not the shell, so we fallback to bash.
-    if shell_path.name.startswith("python"):
+    # Similarly, if pytest is invoked via VS Code, the parent process will be node.
+    if shell_path.name.startswith("python") or shell_path.name.startswith("node"):
         return ShellInfo("/bin/bash", "bash")
     return ShellInfo(f"{shell_path}", shell_path.name)
 
@@ -91,6 +92,13 @@ class TestCommands:
         with pytest.raises(ShellCommandError) as cm:
             X("true | foo", shell=shell)
         assert str(cm.value).startswith(shell_command_error_message)
+
+    def test_shellcommanderror_has_result(self, shell: str, shell_command_error_message: str):
+        with pytest.raises(ShellCommandError) as cm:
+            X("echo test && false", shell=shell)
+        assert str(cm.value).startswith(shell_command_error_message)
+        assert cm.value.out == "test"
+        assert cm.value.status == [1]
 
     def test_command_list(self, shell: str):
         result = X(["echo test", "echo test"], shell=shell)
