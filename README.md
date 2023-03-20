@@ -25,7 +25,7 @@
 
 ## Install
 
-No dependencies required.
+ShellRunner has zero dependencies.
 
 ```
 pip install -U python-shellrunner
