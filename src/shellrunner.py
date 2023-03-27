@@ -13,10 +13,6 @@ from helpers import (
     resolve_shell_path,
 )
 
-# We only need to do this once (on import) since it should never change between calls of X.
-parent_shell_path = get_parent_shell_path()
-
-
 # Parameters:
 # command - String or list of strings that will be executed by the shell.
 # shell (Optional) - Shell that will be used to execute the commands. Can be a path or simply the name (e.g. "/bin/bash", "bash"). | Default is the shell that invoked this script.
@@ -37,7 +33,7 @@ def X(  # noqa: N802
     # Passed in arguments take precedence over the related environment variable.
     shell = resolve_option(shell, Env.get_str("SHELLRUNNER_SHELL"), default="")
     # If given a shell, resolve its path and run the commands with it instead of the invoking shell.
-    shell_path = resolve_shell_path(shell) if shell else parent_shell_path
+    shell_path = resolve_shell_path(shell) if shell else get_parent_shell_path()
     shell_name = shell_path.name
     # If for some reason python is the parent process (or if the user passes in python) we can't continue.
     if shell_name.startswith("python"):
