@@ -1,11 +1,13 @@
 [project]
 name = "python-shellrunner"
-version = "0.3.1"
+version = "0.3.2"
 description = "Write safe shell scripts in Python."
 authors = [
     {name = "adamhl8", email = "adamhl@pm.me"},
 ]
-dependencies = []
+dependencies = [
+    "psutil>=5.9.5",
+]
 requires-python = ">=3.10"
 readme = "README.md"
 license = {text = "MIT"}
@@ -28,11 +30,11 @@ keywords = ["shell", "scripting", "bash", "zsh", "fish"]
 
 [tool.pdm.dev-dependencies]
 dev = [
-    "black>=23.1.0",
-    "ruff>=0.0.257",
-    "pytest>=7.2.2",
-    "types-psutil>=5.9.5.10",
+    "black>=23.3.0",
+    "ruff>=0.0.261",
+    "pytest>=7.3.1",
     "pyroma>=4.2",
+    "types-psutil>=5.9.5.11",
 ]
 
 [tool.pdm.scripts]

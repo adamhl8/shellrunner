@@ -3,6 +3,8 @@ from pathlib import Path
 from shutil import which
 from typing import NamedTuple, TypeVar
 
+from psutil import Process
+
 
 class ShellCommandResult(NamedTuple):
     out: str
@@ -34,7 +36,7 @@ class EnvironmentVariableError(ShellRunnerError):
 # TODO test if executable is a shell, if not default to bash
 def get_parent_shell_path() -> Path:
     try:
-        return Path(f"/proc/{os.getppid()}/exe").readlink().resolve(strict=True)
+        return Path(Process().parent().exe()).resolve(strict=True)
     except Exception as e:  # noqa: BLE001
         message = "An error occured when trying to get the path of the parent shell."
         raise ShellResolutionError(message) from e
