@@ -5,8 +5,11 @@ from shutil import which
 from typing import NamedTuple
 
 import pytest
-from helpers import EnvironmentVariableError, ShellCommandError, ShellResolutionError, get_parent_shell_path
-from shellrunner import X
+
+from shellrunner import ShellCommandError, ShellResolutionError, X
+
+from ._exceptions import EnvironmentVariableError
+from ._utils import get_parent_shell_path
 
 
 class ShellInfo(NamedTuple):
@@ -128,7 +131,7 @@ class TestCommands:
         assert str(cm.value).startswith(shell_command_error_message)
         assert cm.value.status == 127
         # fish will not run a pipeline whatsoever if any command is unknown so we will only ever get one status.
-        if shell == "sh" or shell == "fish":
+        if shell in ("sh", "fish"):
             assert cm.value.pipestatus == [127]
         else:
             assert cm.value.pipestatus == [0, 127]

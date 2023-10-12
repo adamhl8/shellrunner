@@ -1,35 +1,11 @@
 import os
 from pathlib import Path
 from shutil import which
-from typing import NamedTuple, TypeVar
+from typing import TypeVar
 
 from psutil import Process
 
-
-class ShellCommandResult(NamedTuple):
-    out: str
-    status: int
-    pipestatus: list[int]
-
-
-class ShellRunnerError(RuntimeError):
-    pass
-
-
-class ShellCommandError(ShellRunnerError):
-    def __init__(self, message: str, result: ShellCommandResult):
-        super().__init__(message)
-        self.out = result.out
-        self.status = result.status
-        self.pipestatus = result.pipestatus
-
-
-class ShellResolutionError(ShellRunnerError):
-    pass
-
-
-class EnvironmentVariableError(ShellRunnerError):
-    pass
+from ._exceptions import EnvironmentVariableError, ShellResolutionError
 
 
 # Returns the full path of parent process/shell. That way commands are executed using the same shell that invoked this script.

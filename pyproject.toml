@@ -1,6 +1,6 @@
 [project]
 name = "python-shellrunner"
-version = "0.3.2"
+version = "0.3.3"
 description = "Write safe shell scripts in Python."
 authors = [
     {name = "adamhl8", email = "adamhl@pm.me"},
@@ -28,42 +28,46 @@ keywords = ["shell", "scripting", "bash", "zsh", "fish"]
 "Source" = "https://github.com/adamhl8/python-shellrunner"
 "Bug Tracker" = "https://github.com/adamhl8/python-shellrunner/issues"
 
-[tool.pdm.dev-dependencies]
-dev = [
-    "black>=23.3.0",
-    "ruff>=0.0.261",
-    "pytest>=7.3.1",
+[tool.rye]
+managed = true
+dev-dependencies = [
+    "black>=23.9.1",
+    "ruff>=0.0.292",
+    "pytest>=7.4.2",
     "pyroma>=4.2",
-    "types-psutil>=5.9.5.11",
+    "types-psutil>=5.9.5.16",
 ]
 
-[tool.pdm.scripts]
-test = {cmd = "pytest src"}
-pyright = {shell = "pyright src"}
-ruff = {cmd = "ruff check src"}
-lint = {composite = ["pyright", "ruff"]}
-format = {cmd = "black src"}
-pyroma = {cmd = "pyroma ."}
-
-[tool.pytest.ini_options]
-pythonpath = ["src"]
+[tool.rye.scripts]
+test = "pytest shellrunner"
+"lint:pyright" = "pyright ."
+"lint:ruff" = "ruff check ."
+lint = { chain = ["lint:pyright", "lint:ruff"] }
+format = "black ."
+"lint:pyroma" = "pyroma ."
 
 [tool.pyright]
 typeCheckingMode = "strict"
-extraPaths = ["__pypackages__/3.10/lib", "src"]
+
+[tool.black]
+line-length = 120
+target-version = ["py312"]
 
 [tool.ruff]
 line-length = 120
-target-version = "py310"
+target-version = "py312"
 select = ["E", "F", "W", "I", "N", "UP", "BLE", "FBT", "B", "A", "COM", "C4", "T10", "EM", "EXE", "ISC", "ICN", "G",
 "INP", "PIE", "PYI", "PT", "Q", "RSE", "RET", "SLF", "SIM", "TID", "TCH", "ARG", "PTH", "ERA", "PL", "PLC", "PLE",
 "PLR", "PLW", "TRY", "RUF"]
 ignore = ["E501", "PLR0915", "PLR0912", "PLR0913", "PLC1901"]
 
-[tool.black]
-line-length = 120
-target-version = ["py310"]
-
 [build-system]
-requires = ["pdm-backend"]
-build-backend = "pdm.backend"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+packages = ["shellrunner"]
+exclude = ["test*.py"]
+
+[tool.hatch.metadata]
+allow-direct-references = true

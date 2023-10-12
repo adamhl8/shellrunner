@@ -1,8 +1,5 @@
 __pycache__
-__pypackages__
+.python-version
 .pytest_cache
 .ruff_cache
-.pdm-python
-build
 dist
-pypi-*
