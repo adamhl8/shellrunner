@@ -17,6 +17,10 @@ class ShellInfo(NamedTuple):
     name: str
 
 
+def remove_escape_sequences(string: str):
+    return re.sub(r"\x1b[^m]*m", "", string)
+
+
 @pytest.fixture()
 def shell_command_error_message():
     return "Command exited with non-zero status:"
@@ -194,7 +198,8 @@ class TestOptions:
         assert result.status == 0
         assert result.pipestatus == [0]
         captured = capsys.readouterr()
-        assert captured.out == "Executing: echo test\n"
+        clean_out = remove_escape_sequences(captured.out)
+        assert clean_out == "shellrunner: echo test\n"
 
     def test_show_commands_false(self, shell: str, capsys: pytest.CaptureFixture[str]):
         result = X("echo test", shell=shell, show_commands=False)
@@ -260,7 +265,8 @@ class TestOptions:
         assert result.status == 0
         assert result.pipestatus == [0]
         captured = capsys.readouterr()
-        assert captured.out == "Executing: echo test\ntest\n"
+        clean_out = remove_escape_sequences(captured.out)
+        assert clean_out == "shellrunner: echo test\ntest\n"
 
     def test_invalid_bool_value_for_environment_variable_raises_error(
         self,

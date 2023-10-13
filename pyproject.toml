@@ -1,6 +1,6 @@
 [project]
 name = "python-shellrunner"
-version = "0.3.3"
+version = "0.3.4"
 description = "Write safe shell scripts in Python."
 authors = [
     {name = "adamhl8", email = "adamhl@pm.me"},
@@ -42,9 +42,10 @@ dev-dependencies = [
 test = "pytest shellrunner"
 "lint:pyright" = "pyright ."
 "lint:ruff" = "ruff check ."
-lint = { chain = ["lint:pyright", "lint:ruff"] }
+"lint:black" = "black --check ."
+"lint:pyroma" = "pyroma -n 10 ."
+lint = { chain = ["lint:pyright", "lint:ruff", "lint:black", "lint:pyroma"] }
 format = "black ."
-"lint:pyroma" = "pyroma ."
 
 [tool.pyright]
 typeCheckingMode = "strict"

@@ -100,7 +100,7 @@ def run(
 
     # Print command_list rather than commands so we don't see the appended status_checks.
     if show_commands:
-        print(f"Executing: {'; '.join(command_list)}")
+        print(f"shellrunner: \033[33m{'; '.join(command_list)}\033[0m")
 
     # By using the Popen context manager via with, standard file descriptors are automatically closed.
     with subprocess.Popen(

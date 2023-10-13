@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install rye
+        run: |
+          RYE_INSTALL_OPTION="--yes" /bin/bash -c "$(curl -fsSL https://rye-up.com/get)"
+          echo "$HOME/.rye/shims" >> $GITHUB_PATH
+
+      - name: rye sync
+        run: |
+          rye add --dev pyright
+          rye sync
+
+      - name: Lint
+        run: rye run lint
+
+      - name: Test
+        run: |
+          apt-add-repository ppa:fish-shell/release-3 -y
+          apt update
+          apt install fish -y
+          apt install zsh -y
+          rye run test
+
+      - name: Build
+        run: rye build
+
+      - name: Publish
+        run: rye publish -u __token__ --token ${{ secrets.PYPI_TOKEN }} --yes

@@ -131,7 +131,7 @@ result = X("(exit 1) | (exit 2) | echo hello")
 # result.pipestatus = [1, 2, 0]
 ```
 
-If using a shell that does not support `PIPESTATUS` such as `sh`, you will only ever get the status of the last command in a pipeline. **This also means that in this case ShellRunner cannot detect if an error occured in a pipeline:**
+If using a shell that does not support `PIPESTATUS` such as `sh`, you will only ever get the status of the last command in a pipeline. **This also means that in this case ShellRunner cannot detect if an error occurred in a pipeline:**
 
 ```python
 result = X("(exit 1) | echo hello")
@@ -207,11 +207,11 @@ X("echo hello world")
 This will print the following to your terminal:
 
 ```
-Executing: echo hello world
+shellrunner: echo hello world
 hello world
 ```
 
-To hide the `Executing:` lines, set `show_commands=False`.
+To hide the `shellrunner:` lines, set `show_commands=False`.
 
 To hide actual command output, set `show_output=False`.
 
