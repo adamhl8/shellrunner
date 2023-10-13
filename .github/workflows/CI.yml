@@ -26,10 +26,10 @@ jobs:
 
       - name: Test
         run: |
-          apt-add-repository ppa:fish-shell/release-3 -y
-          apt update
-          apt install fish -y
-          apt install zsh -y
+          sudo apt-add-repository ppa:fish-shell/release-3 -y
+          sudo apt update
+          sudo apt install fish -y
+          sudo apt install zsh -y
           rye run test
 
       - name: Build
