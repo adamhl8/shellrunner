@@ -1,6 +1,6 @@
 [project]
 name = "python-shellrunner"
-version = "0.3.4"
+version = "0.3.5"
 description = "Write safe shell scripts in Python."
 authors = [
     {name = "adamhl8", email = "adamhl@pm.me"},
