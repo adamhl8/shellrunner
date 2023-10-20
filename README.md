@@ -1,7 +1,8 @@
+# ShellRunner
+
 <div align="center">
-  <img width="250" src="https://user-images.githubusercontent.com/1844269/226196799-402898d6-c363-4735-be23-57c0ba9e1035.png">
+  <img width="100" src="https://github.com/adamhl8/python-shellrunner/assets/1844269/035c8ae0-bb77-473b-ac1c-2bc83ce749ac">
 </div>
-<br>
 <p align="center">
   Write safe shell scripts in Python.
   <br>
