@@ -31,8 +31,7 @@ keywords = ["shell", "scripting", "bash", "zsh", "fish"]
 [tool.rye]
 managed = true
 dev-dependencies = [
-    "black>=23.9.1",
-    "ruff>=0.0.292",
+    "ruff>=0.1.3",
     "pytest>=7.4.2",
     "pyroma>=4.2",
     "types-psutil>=5.9.5.16",
@@ -42,25 +41,29 @@ dev-dependencies = [
 test = "pytest shellrunner"
 "lint:pyright" = "pyright ."
 "lint:ruff" = "ruff check ."
-"lint:black" = "black --check ."
+"lint:ruff:format" = "ruff format --check ."
 "lint:pyroma" = "pyroma -n 10 ."
-lint = { chain = ["lint:pyright", "lint:ruff", "lint:black", "lint:pyroma"] }
-format = "black ."
+lint = { chain = ["lint:pyright", "lint:ruff", "lint:ruff:format", "lint:pyroma"] }
+format = "ruff format ."
 
 [tool.pyright]
 typeCheckingMode = "strict"
 
-[tool.black]
-line-length = 120
-target-version = ["py312"]
-
 [tool.ruff]
 line-length = 120
-target-version = "py312"
-select = ["E", "F", "W", "I", "N", "UP", "BLE", "FBT", "B", "A", "COM", "C4", "T10", "EM", "EXE", "ISC", "ICN", "G",
-"INP", "PIE", "PYI", "PT", "Q", "RSE", "RET", "SLF", "SIM", "TID", "TCH", "ARG", "PTH", "ERA", "PL", "PLC", "PLE",
-"PLR", "PLW", "TRY", "RUF"]
-ignore = ["E501", "PLR0915", "PLR0912", "PLR0913", "PLC1901"]
+output-format = "grouped"
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+"ANN101",
+# ruff conflicts
+"D203",
+"D213",
+# ruff format conflicts
+"COM812",
+"ISC001",
+]
 
 [build-system]
 requires = ["hatchling"]

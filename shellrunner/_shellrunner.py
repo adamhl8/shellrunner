@@ -10,13 +10,6 @@ from ._utils import (
     resolve_shell_path,
 )
 
-# Parameters:
-# command - String or list of strings that will be executed by the shell.
-# shell (Optional) - Shell that will be used to execute the commands. Can be a path or simply the name (e.g. "/bin/bash", "bash"). | Default is the shell that invoked this script.
-# check (Optional) - If True, an error will be thrown if a command exits with a non-zero status. Equivalent to bash's "set -e". | Default is True
-# show_output (Optional) - If True, command output will be printed. | Default is True
-# show_commands (Optional) - If True, the current command will be printed before execution. | Default is True
-
 
 def run(
     command: str | list[str],
@@ -26,6 +19,31 @@ def run(
     show_output: bool | None = None,
     show_commands: bool | None = None,
 ) -> ShellCommandResult:
+    """Execute a command or a list of commands using a shell.
+
+    Args:
+    ----
+    command (str | list[str]): The command or list of commands to be executed by the shell.
+
+    The following keyword arguments are all optional:
+    shell (str): The shell that will be used to execute the commands.
+        Can be a path or simply the name (e.g. "/bin/bash", "bash"). Defaults to the shell that invoked the script.
+    check (bool): If True, an error will be thrown if a command exits with a non-zero status.
+        Similar to bash's "set -e". Defaults to True.
+    show_output (bool): If True, command output will be printed. Defaults to True.
+    show_commands (bool): If True, the current command will be printed before execution. Defaults to True.
+
+    Returns:
+    -------
+    ShellCommandResult: The result of the shell command execution.
+
+    Raises:
+    ------
+    ShellResolutionError: Raised if an error occurs when resolving the path to the shell.
+    ShellCommandError: If check is True, this is raised if a command exits with a non-zero status.
+    ShellRunnerError: Raised when an unexpected error occurs.
+        Usually an execution error with this function, not necessarily the provided command.
+    """
     # We default each argument to None rather than the "real" defaults so we can detect if the user actually passed something in.
     # Passed in arguments take precedence over the related environment variable.
     shell = resolve_option(shell, Env.get_str("SHELLRUNNER_SHELL"), default="")
@@ -105,7 +123,7 @@ def run(
     # By using the Popen context manager via with, standard file descriptors are automatically closed.
     with subprocess.Popen(
         commands,
-        shell=True,
+        shell=True,  # noqa: S602
         executable=shell_path,
         text=True,
         stdout=subprocess.PIPE,
