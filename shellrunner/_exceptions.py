@@ -12,7 +12,7 @@ class ShellRunnerError(RuntimeError):
 
 
 class ShellCommandError(ShellRunnerError):
-    def __init__(self, message: str, result: ShellCommandResult):
+    def __init__(self, message: str, result: ShellCommandResult) -> None:
         super().__init__(message)
         self.out = result.out
         self.status = result.status

@@ -27,7 +27,7 @@
 ## Install
 
 ```
-pip install -U python-shellrunner
+pip install -U shellrunner
 ```
 
 ## Usage
@@ -83,7 +83,7 @@ Because writing anything remotely complicated in bash kinda sucks :)
 
 One of the primary advantages of ShellRunner's approach is that you can seamlessly swap between the shell and Python. Some things are just easier to do in a shell (e.g. pipelines) and a lot of things are easier/better in Python (control flow, error handling, etc).
 
-Also, users of [fish](https://github.com/fish-shell/fish-shell) might know that it [does not offer a way to easily exit a script if a command fails](https://github.com/fish-shell/fish-shell/issues/510). ShellRunner adds `set -e` and `pipefail` like functionality to any shell. Leverage the improved syntax of your preferred shell and the (optional) saftey of bash.
+Also, users of [fish](https://github.com/fish-shell/fish-shell) might know that it [does not offer a way to easily exit a script if a command fails](https://github.com/fish-shell/fish-shell/issues/510). ShellRunner adds `set -e` and `pipefail` like functionality to any shell. Leverage the improved syntax of your preferred shell and the (optional) safety of bash.
 
 ### Similar Projects
 
@@ -95,7 +95,7 @@ ShellRunner is very similar to zxpy and shellpy but aims to be more simple in it
 
 ## Advanced Usage
 
-A note on compatability: ShellRunner should work with on any POSIX-compliant system (and shell). No Windows support at this time.
+A note on compatibility: ShellRunner should work with on any POSIX-compliant system (and shell). No Windows support at this time.
 
 Confirmed compatible with `sh` (dash), `bash`, `zsh`, and `fish`.
 
@@ -104,7 +104,7 @@ Commands are automatically run with the shell that invoked your python script (t
 ```python
 # my_script.py
 X("echo hello | string match hello")
-# Works if my_script.py is executed under fish. Will obviously fail if using bash.
+# Works if my_script.py is executed under fish (string match). Will obviously fail if using bash.
 ```
 
 ### Shell Command Result
@@ -186,7 +186,7 @@ X([
 There are a few keyword arguments you can provide to adjust the behavior of `X`:
 
 ```python
-X("command", shell="bash", check=True, show_output=True, show_commands=True)
+X("command", shell="bash", check=True, show_output=True, show_command=True)
 ```
 
 `shell: str` (Default: the invoking shell) - Shell that will be used to execute the commands. Can be a path or simply the name (e.g. "/bin/bash", "bash").
@@ -195,7 +195,7 @@ X("command", shell="bash", check=True, show_output=True, show_commands=True)
 
 `show_output: bool` (Default: True) - If True, command output will be printed.
 
-`show_commands: bool` (Default: True) - If True, the current command will be printed before execution.
+`show_command: bool` (Default: True) - If True, the current command will be printed before execution.
 
 ### Output
 
@@ -212,7 +212,7 @@ shellrunner: echo hello world
 hello world
 ```
 
-To hide the `shellrunner:` lines, set `show_commands=False`.
+To hide the `shellrunner:` lines, set `show_command=False`.
 
 To hide actual command output, set `show_output=False`.
 
@@ -226,7 +226,7 @@ Each option also has a corresponding environment variable to allow you to set th
 
 `show_output` = `SHELLRUNNER_SHOW_OUTPUT`
 
-`show_commands` = `SHELLRUNNER_SHOW_COMMANDS`
+`show_command` = `SHELLRUNNER_SHOW_COMMAND`
 
 Environment variables are evaluated on each call of `X`, so you could also do something like this:
 
@@ -253,5 +253,5 @@ packages = packages.splitlines()
 
 for package in packages:
     print(f"=== {package} ===")
-    X(f"pip show {package} | grep -E 'Requires|Required-by'", show_commands=False)
+    X(f"pip show {package} | grep -E 'Requires|Required-by'", show_command=False)
 ```

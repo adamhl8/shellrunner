@@ -1,12 +1,12 @@
 [project]
-name = "python-shellrunner"
+name = "shellrunner"
 version = "0.3.5"
 description = "Write safe shell scripts in Python."
 authors = [
     {name = "adamhl8", email = "adamhl@pm.me"},
 ]
 dependencies = [
-    "psutil>=5.9.5",
+    "psutil>=5.9.6",
 ]
 requires-python = ">=3.10"
 readme = "README.md"
@@ -24,43 +24,46 @@ classifiers = [
 keywords = ["shell", "scripting", "bash", "zsh", "fish"]
 
 [project.urls]
-"Homepage" = "https://github.com/adamhl8/python-shellrunner"
-"Source" = "https://github.com/adamhl8/python-shellrunner"
-"Bug Tracker" = "https://github.com/adamhl8/python-shellrunner/issues"
+"Homepage" = "https://github.com/adamhl8/shellrunner"
+"Source" = "https://github.com/adamhl8/shellrunner"
+"Bug Tracker" = "https://github.com/adamhl8/shellrunner/issues"
 
 [tool.rye]
 managed = true
 dev-dependencies = [
-    "black>=23.9.1",
-    "ruff>=0.0.292",
-    "pytest>=7.4.2",
+    "ruff>=0.1.7",
+    "pytest>=7.4.3",
     "pyroma>=4.2",
-    "types-psutil>=5.9.5.16",
+    "types-psutil>=5.9.5.17",
 ]
 
 [tool.rye.scripts]
 test = "pytest shellrunner"
 "lint:pyright" = "pyright ."
 "lint:ruff" = "ruff check ."
-"lint:black" = "black --check ."
+"lint:ruff:format" = "ruff format --check ."
 "lint:pyroma" = "pyroma -n 10 ."
-lint = { chain = ["lint:pyright", "lint:ruff", "lint:black", "lint:pyroma"] }
-format = "black ."
+lint = { chain = ["lint:pyright", "lint:ruff", "lint:ruff:format", "lint:pyroma"] }
+format = "ruff format ."
 
 [tool.pyright]
 typeCheckingMode = "strict"
 
-[tool.black]
-line-length = 120
-target-version = ["py312"]
-
 [tool.ruff]
 line-length = 120
-target-version = "py312"
-select = ["E", "F", "W", "I", "N", "UP", "BLE", "FBT", "B", "A", "COM", "C4", "T10", "EM", "EXE", "ISC", "ICN", "G",
-"INP", "PIE", "PYI", "PT", "Q", "RSE", "RET", "SLF", "SIM", "TID", "TCH", "ARG", "PTH", "ERA", "PL", "PLC", "PLE",
-"PLR", "PLW", "TRY", "RUF"]
-ignore = ["E501", "PLR0915", "PLR0912", "PLR0913", "PLC1901"]
+output-format = "grouped"
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+"ANN101",
+# ruff conflicts
+"D203",
+"D213",
+# ruff format conflicts
+"COM812",
+"ISC001",
+]
 
 [build-system]
 requires = ["hatchling"]

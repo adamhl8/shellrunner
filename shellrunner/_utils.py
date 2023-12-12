@@ -8,21 +8,31 @@ from psutil import Process
 from ._exceptions import EnvironmentVariableError, ShellResolutionError
 
 
-# Returns the full path of parent process/shell. That way commands are executed using the same shell that invoked this script.
-# TODO test if executable is a shell, if not default to bash
+# TODO @adamhl8: test if executable is a shell, if not default to bash  # noqa: TD003, FIX002
 def get_parent_shell_path() -> Path:
+    """Return the full path of parent process/shell.
+
+    This is used when X is called without explicitly passing in a shell.
+    That way commands are executed using the same shell that invoked the script.
+    """
     try:
         return Path(Process().parent().exe()).resolve(strict=True)
     except Exception as e:  # noqa: BLE001
-        message = "An error occured when trying to get the path of the parent shell."
+        message = "An error occurred when trying to get the path of the parent shell."
         raise ShellResolutionError(message) from e
 
 
-# Returns the full path of a given path or executable name. e.g. "/bin/bash" or "bash"
 def resolve_shell_path(shell: str) -> Path:
-    which_shell = which(shell, os.X_OK)
+    """Return the full path of a given path or executable name. e.g. '/bin/bash' or 'bash'.
+
+    This is used when X is passed an argument for shell.
+    """
+    which_shell = which(shell, os.F_OK)
     if which_shell is None:
-        message = f'Unable to resolve the path to the executable: "{shell}". It is either not on your PATH or the specified file is not executable.'
+        message = f'Unable to resolve the path to shell "{shell}". It does not exist or it is not on your PATH.'
+        raise ShellResolutionError(message)
+    if not os.access(which_shell, os.X_OK):
+        message = f'The file at "{which_shell}" is not executable.'
         raise ShellResolutionError(message)
     return Path(which_shell).resolve(strict=True)
 
@@ -30,8 +40,12 @@ def resolve_shell_path(shell: str) -> Path:
 Option = TypeVar("Option")
 
 
-# If option_arg is not None (something was passed in), return that value. If None, return the value of the related environment variable. Otherwise, fallback to the default value.
 def resolve_option(option_arg: Option | None, env_var_value: Option | None, *, default: Option) -> Option:
+    """Try to resolve an option: passed in value -> environment variable -> default.
+
+    If option_arg is not None (something was passed in), return that value.
+    If None, return the value of the related environment variable. Otherwise, fallback to the default value.
+    """
     if option_arg is not None:
         return option_arg
 
@@ -41,8 +55,9 @@ def resolve_option(option_arg: Option | None, env_var_value: Option | None, *, d
     return default
 
 
-# Helper class for resolving environment variables.
 class Env:
+    """Helper class for resolving environment variables."""
+
     @staticmethod
     def get_bool(env_var: str) -> bool | None:
         value = os.getenv(env_var)
@@ -53,7 +68,7 @@ class Env:
         if value.title() == "False":
             return False
 
-        message = f'Received invalid value for environment variable {env_var}: "{value}"\nExpected "True" or "False" (case-insensitive).'
+        message = f'Received invalid value for environment variable {env_var}: "{value}"\nExpected "True" or "False" (case-insensitive).'  # noqa: E501
         raise EnvironmentVariableError(message)
 
     @staticmethod
