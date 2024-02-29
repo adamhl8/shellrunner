@@ -5,25 +5,42 @@
 #   pre: false
 #   features: []
 #   all-features: false
+#   with-sources: false
 
 -e file:.
 build==1.0.3
-certifi==2023.11.17
+    # via pyroma
+certifi==2024.2.2
+    # via requests
 charset-normalizer==3.3.2
+    # via requests
 docutils==0.20.1
+    # via pyroma
 idna==3.6
+    # via requests
 iniconfig==2.0.0
+    # via pytest
 packaging==23.2
-pluggy==1.3.0
-psutil==5.9.6
+    # via build
+    # via pyroma
+    # via pytest
+pluggy==1.4.0
+    # via pytest
+psutil==5.9.8
+    # via shellrunner
 pygments==2.17.2
+    # via pyroma
 pyproject-hooks==1.0.0
+    # via build
 pyroma==4.2
-pytest==7.4.3
+pytest==8.0.2
 requests==2.31.0
-ruff==0.1.7
-trove-classifiers==2023.11.29
-types-psutil==5.9.5.17
-urllib3==2.1.0
-# The following packages are considered to be unsafe in a requirements file:
-setuptools==69.0.2
+    # via pyroma
+ruff==0.3.0
+setuptools==69.1.1
+    # via pyroma
+trove-classifiers==2024.2.23
+    # via pyroma
+types-psutil==5.9.5.20240205
+urllib3==2.2.1
+    # via requests

@@ -14,7 +14,7 @@ jobs:
 
       - name: Install rye
         run: |
-          RYE_INSTALL_OPTION="--yes" /bin/bash -c "$(curl -fsSL https://rye-up.com/get)"
+          RYE_TOOLCHAIN_VERSION="3.10" RYE_INSTALL_OPTION="--yes" /bin/bash -c "$(curl -fsSL https://rye-up.com/get)"
           echo "$HOME/.rye/shims" >> $GITHUB_PATH
 
       - name: rye sync

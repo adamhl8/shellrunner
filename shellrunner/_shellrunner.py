@@ -43,6 +43,7 @@ def run(
     ShellCommandError: If check is True, this is raised if a command exits with a non-zero status.
     ShellRunnerError: Raised when an unexpected error occurs.
         Usually an execution error with this function, not necessarily the provided command.
+
     """
     options = _resolve_options(shell, check, show_output, show_command)
     shell, check, show_output, show_command = options
